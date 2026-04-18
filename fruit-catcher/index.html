@@ -173,6 +173,91 @@
     color: rgba(255,255,255,0.85);
     margin-top: 2px;
   }
+  /* 道具栏 */
+  #itemBar {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+    z-index: 10;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  #itemBar.active { opacity: 1; }
+  .item-slot {
+    width: 52px;
+    height: 52px;
+    background: rgba(0,0,0,0.6);
+    border: 2px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    backdrop-filter: blur(4px);
+  }
+  .item-slot .item-key {
+    position: absolute;
+    top: -8px;
+    right: -4px;
+    background: rgba(255,255,255,0.2);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  .item-slot .item-icon {
+    font-size: 22px;
+    line-height: 1;
+  }
+  .item-slot .item-count {
+    position: absolute;
+    bottom: 1px;
+    right: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #ffd700;
+  }
+  .item-slot.empty {
+    opacity: 0.3;
+  }
+  .item-slot.active-use {
+    border-color: #ffd700;
+    box-shadow: 0 0 12px rgba(255,215,0,0.6);
+    animation: itemFlash 0.15s;
+  }
+  @keyframes itemFlash {
+    0% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+  /* 道具使用提示 */
+  #itemUseHint {
+    position: absolute;
+    bottom: 72px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.75);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 6px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #ffd700;
+    z-index: 15;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+    text-align: center;
+    white-space: nowrap;
+  }
+  #itemUseHint.show {
+    opacity: 1;
+  }
 </style>
 </head>
 <body>
@@ -186,6 +271,12 @@
     <div class="ach-name" id="achName"></div>
     <div class="ach-desc" id="achDesc"></div>
   </div>
+
+  <!-- 道具使用提示 -->
+  <div id="itemUseHint"></div>
+
+  <!-- 道具栏 -->
+  <div id="itemBar"></div>
 
   <div id="hud">
     <div class="hud-panel">
@@ -213,7 +304,8 @@
     <h2>Fruit Catcher</h2>
     <p>水果从四周射来——用<b style="color:#fff">鼠标</b>控制角色头部朝向，让水果碰到头部即可吃掉！<br>
        越<b style="color:#a8e063">轻</b>的水果分数越高，但飞行越快！每关<b style="color:#fff">45秒</b>，达到目标分数过关。<br>
-       <b style="color:#ff6b6b">小心炸弹💣</b>！碰到会扣15分并产生爆炸！</p>
+       <b style="color:#ff6b6b">小心炸弹💣</b>！碰到会扣15分并产生爆炸！<br>
+       <b style="color:#ffd700">道具🎁</b>会随机掉落，碰到收集后按 <b style="color:#fff">数字键 1-6</b> 释放对应道具！</p>
     <div class="fruit-legend">
       <div class="fruit-item"><span>🍉</span><span>西瓜 +1分（最重·最慢）</span></div>
       <div class="fruit-item"><span>🍊</span><span>橙子 +3分</span></div>
@@ -222,6 +314,14 @@
       <div class="fruit-item"><span>🍓</span><span>草莓 +12分</span></div>
       <div class="fruit-item"><span>🫐</span><span>蓝莓 +20分（最轻·最快）</span></div>
       <div class="fruit-item"><span>💣</span><span style="color:#ff6b6b">炸弹 -15分</span></div>
+    </div>
+    <div class="fruit-legend" style="margin-top:8px">
+      <div class="fruit-item"><span>🧲</span><span>磁铁-吸附水果</span></div>
+      <div class="fruit-item"><span>⏱️</span><span>时间减缓</span></div>
+      <div class="fruit-item"><span>🛡️</span><span>护盾</span></div>
+      <div class="fruit-item"><span>✖️</span><span>双倍得分</span></div>
+      <div class="fruit-item"><span>💥</span><span>炸弹清除</span></div>
+      <div class="fruit-item"><span>❄️</span><span>冰冻全场</span></div>
     </div>
     <button class="btn btn-primary" id="btnStart">开始游戏</button>
   </div>
@@ -257,7 +357,7 @@
 
 <script>
 /* ==========================================================
-   水果吃货 - 成就系统版
+   水果吃货 - 道具系统版
    ========================================================== */
 
 // ==================== 常量 ====================
@@ -288,6 +388,186 @@ const LEVELS = [
 
 const ROUND_TIME = 45;
 
+// ==================== 道具系统 ====================
+const ITEMS = [
+  { id:'magnet',   name:'磁铁',     icon:'🧲', color:'#3b82f6', desc:'自动吸附附近水果5秒',     duration:5000 },
+  { id:'slow',     name:'时间减缓', icon:'⏱️', color:'#f59e0b', desc:'全场速度降低50%持续5秒',   duration:5000 },
+  { id:'shield',   name:'护盾',     icon:'🛡️', color:'#10b981', desc:'免疫下一次炸弹伤害',        duration:0 },
+  { id:'double',   name:'双倍得分', icon:'✖️', color:'#ef4444', desc:'得分翻倍持续8秒',           duration:8000 },
+  { id:'clearbomb',name:'炸弹清除', icon:'💥', color:'#f97316', desc:'清除场上所有炸弹',          duration:0 },
+  { id:'freeze',   name:'冰冻全场', icon:'❄️', color:'#06b6d4', desc:'冻结所有水果4秒',          duration:4000 },
+];
+
+// 道具栏：最多每种持有3个
+let itemBag = {};
+ITEMS.forEach(it => itemBag[it.id] = 0);
+
+// 道具掉落生成计时
+let itemSpawnTimer = 0;
+const ITEM_SPAWN_INTERVAL = 12000; // 每12秒判定一次
+const ITEM_DROP_CHANCE = 0.35;    // 35%概率生成道具掉落
+
+// 道具掉落物（在场上飞行的道具盒）
+let itemDrops = [];
+
+// 道具效果状态
+let activeEffects = {
+  magnet:   { active: false, timer: 0 },
+  slow:     { active: false, timer: 0 },
+  shield:   { active: false },        // 一次性，不计时
+  double:   { active: false, timer: 0 },
+  freeze:   { active: false, timer: 0 },
+};
+
+// 道具使用提示
+let itemHintTimer = null;
+const itemHintEl = document.getElementById('itemUseHint');
+
+function showItemHint(text) {
+  itemHintEl.textContent = text;
+  itemHintEl.classList.add('show');
+  clearTimeout(itemHintTimer);
+  itemHintTimer = setTimeout(() => itemHintEl.classList.remove('show'), 2000);
+}
+
+// 初始化道具栏UI
+function initItemBar() {
+  const bar = document.getElementById('itemBar');
+  bar.innerHTML = '';
+  ITEMS.forEach((it, i) => {
+    const slot = document.createElement('div');
+    slot.className = 'item-slot empty';
+    slot.id = 'slot-' + it.id;
+    slot.innerHTML =
+      '<span class="item-key">' + (i + 1) + '</span>' +
+      '<span class="item-icon">' + it.icon + '</span>' +
+      '<span class="item-count" id="count-' + it.id + '">0</span>';
+    bar.appendChild(slot);
+  });
+}
+initItemBar();
+
+function updateItemBarUI() {
+  ITEMS.forEach(it => {
+    const slot = document.getElementById('slot-' + it.id);
+    const countEl = document.getElementById('count-' + it.id);
+    const c = itemBag[it.id];
+    countEl.textContent = c;
+    if (c > 0) {
+      slot.classList.remove('empty');
+    } else {
+      slot.classList.add('empty');
+    }
+  });
+}
+updateItemBarUI();
+
+// 生成道具掉落物
+function spawnItemDrop() {
+  if (itemDrops.length >= 2) return; // 场上最多2个道具盒
+  // 随机选一个道具类型
+  const def = ITEMS[Math.floor(Math.random() * ITEMS.length)];
+  const side = Math.floor(Math.random() * 4);
+  const m = 50;
+  let sx, sy;
+  if (side===0) { sx=Math.random()*W; sy=-m; }
+  else if (side===1) { sx=W+m; sy=Math.random()*H; }
+  else if (side===2) { sx=Math.random()*W; sy=H+m; }
+  else { sx=-m; sy=Math.random()*H; }
+
+  const dx = CX - sx + (Math.random()-0.5)*160;
+  const dy = CY - sy + (Math.random()-0.5)*160;
+  const len = Math.hypot(dx, dy);
+  const speed = 90; // 道具盒飞行较慢
+  const vx = (dx/len)*speed, vy = (dy/len)*speed;
+
+  itemDrops.push({
+    x:sx, y:sy, vx, vy,
+    def, eaten:false, alpha:1,
+    scale:1, rot:0, rotSpd:(Math.random()-0.5)*3,
+    glow: 0,
+  });
+}
+
+// 使用道具
+function useItem(slotIndex) {
+  if (state !== 'playing') return;
+  const def = ITEMS[slotIndex];
+  if (!def || itemBag[def.id] <= 0) return;
+
+  itemBag[def.id]--;
+  updateItemBarUI();
+
+  // 闪烁槽位
+  const slot = document.getElementById('slot-' + def.id);
+  slot.classList.add('active-use');
+  setTimeout(() => slot.classList.remove('active-use'), 200);
+
+  playItemUseSound(def.id);
+  const h = headPos();
+
+  switch (def.id) {
+    case 'magnet':
+      activeEffects.magnet.active = true;
+      activeEffects.magnet.timer = def.duration;
+      showItemHint('🧲 磁铁启动！自动吸附水果5秒');
+      spawnParticles(h.x, h.y, '#3b82f6', 25, true);
+      break;
+
+    case 'slow':
+      activeEffects.slow.active = true;
+      activeEffects.slow.timer = def.duration;
+      showItemHint('⏱️ 时间减缓！全场减速50%');
+      spawnParticles(h.x, h.y, '#f59e0b', 25, true);
+      break;
+
+    case 'shield':
+      activeEffects.shield.active = true;
+      showItemHint('🛡️ 护盾启动！免疫下一次炸弹');
+      spawnParticles(h.x, h.y, '#10b981', 25, true);
+      break;
+
+    case 'double':
+      activeEffects.double.active = true;
+      activeEffects.double.timer = def.duration;
+      showItemHint('✖️ 双倍得分！持续8秒');
+      spawnParticles(h.x, h.y, '#ef4444', 25, true);
+      break;
+
+    case 'clearbomb':
+      let cleared = 0;
+      projectiles.forEach(p => {
+        if (p.isBomb && !p.eaten) {
+          p.eaten = true;
+          spawnParticles(p.x, p.y, '#f97316', 20, true);
+          spawnParticles(p.x, p.y, '#ff4400', 15, false);
+          cleared++;
+        }
+      });
+      showItemHint('💥 清除了 ' + cleared + ' 个炸弹！');
+      if (cleared > 0) playBombClearSound();
+      break;
+
+    case 'freeze':
+      activeEffects.freeze.active = true;
+      activeEffects.freeze.timer = def.duration;
+      showItemHint('❄️ 全场冰冻4秒！');
+      spawnParticles(h.x, h.y, '#06b6d4', 30, true);
+      break;
+  }
+
+  stats.itemsUsed = (stats.itemsUsed || 0) + 1;
+  checkAchievements();
+}
+
+// 键盘监听
+document.addEventListener('keydown', e => {
+  const key = parseInt(e.key);
+  if (key >= 1 && key <= 6) {
+    useItem(key - 1);
+  }
+});
+
 // ==================== 成就系统 ====================
 const ACHIEVEMENTS = [
   { id:'first_win',   name:'初出茅庐',   desc:'完成第一关',                  icon:'🌟', check: (s) => s.maxLevelCleared >= 1 },
@@ -310,12 +590,20 @@ const ACHIEVEMENTS = [
   { id:'orange_15',   name:'橙意满满',   desc:'一局吃了15个橙子',           icon:'🍊', check: (s) => s.roundFruits['橙子'] >= 15 },
   { id:'no_bomb_win', name:'完美回避',   desc:'不碰任何炸弹通过一关',       icon:'🛡️', check: (s) => s.noBombWin },
   { id:'speed_clear', name:'极速通关',   desc:'在30秒内通过任意一关',       icon:'⏱️', check: (s) => s.speedClear },
+  { id:'item_first',  name:'初次尝试',   desc:'第一次使用道具',             icon:'🎁', check: (s) => (s.itemsUsed || 0) >= 1 },
+  { id:'item_hoarder',name:'道具收藏家', desc:'同时持有3种不同道具',         icon:'🎒', check: () => {
+    let types = 0;
+    ITEMS.forEach(it => { if (itemBag[it.id] > 0) types++; });
+    return types >= 3;
+  }},
+  { id:'item_spam',   name:'疯狂使用',   desc:'一局使用10次道具',            icon:'🧪', check: (s) => (s.itemsUsed || 0) >= 10 },
+  { id:'shield_save', name:'完美防御',   desc:'用护盾挡住炸弹伤害',          icon:'🔰', check: (s) => s.shieldBlocked },
 ];
 
 // 成就状态
 let unlockedAch = new Set();
-let achQueue = [];       // 等待展示的成就队列
-let achShowing = false;  // 是否正在展示
+let achQueue = [];
+let achShowing = false;
 let achTimer = null;
 
 // 本局统计
@@ -331,6 +619,8 @@ function resetRoundStats() {
     maxLevelCleared: 0,
     noBombWin: false,
     speedClear: false,
+    itemsUsed: 0,
+    shieldBlocked: false,
   };
 }
 resetRoundStats();
@@ -365,7 +655,7 @@ function showNextAch() {
   }, 2500);
 }
 
-/** 成就解锁音效：上行琶音 + 闪光 */
+/** 成就解锁音效 */
 function playAchievementSound() {
   ensureAudio();
   const ac = audioCtx;
@@ -389,6 +679,7 @@ const ctx     = canvas.getContext('2d');
 const wrapper = document.getElementById('gameWrapper');
 const hudEl   = document.getElementById('hud');
 const lvlInfo = document.getElementById('levelInfo');
+const itemBar = document.getElementById('itemBar');
 const overlays = {
   start: document.getElementById('startScreen'),
   win:   document.getElementById('winScreen'),
@@ -556,6 +847,90 @@ function playBombSound() {
   ns.start(now); ns.stop(now+0.4);
 }
 
+/** 道具拾取音效 */
+function playItemPickupSound() {
+  ensureAudio();
+  const ac = audioCtx, now = ac.currentTime;
+  [880, 1100, 1320].forEach((freq, i) => {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.type = 'sine';
+    const t = now + i * 0.06;
+    o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.3, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+    o.start(t); o.stop(t + 0.18);
+  });
+}
+
+/** 道具使用音效 */
+function playItemUseSound(itemId) {
+  ensureAudio();
+  const ac = audioCtx, now = ac.currentTime;
+  const freqMap = {
+    magnet: [440, 554, 659],
+    slow: [660, 523, 440],
+    shield: [523, 659, 784],
+    double: [784, 988, 1175],
+    clearbomb: [330, 220, 147],
+    freeze: [1175, 988, 784],
+  };
+  const freqs = freqMap[itemId] || [660, 880];
+  freqs.forEach((freq, i) => {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.type = itemId === 'freeze' ? 'triangle' : (itemId === 'clearbomb' ? 'sawtooth' : 'sine');
+    const t = now + i * 0.07;
+    o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.3, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+    o.start(t); o.stop(t + 0.25);
+  });
+}
+
+/** 炸弹清除音效 */
+function playBombClearSound() {
+  ensureAudio();
+  const ac = audioCtx, now = ac.currentTime;
+  const ns = ac.createBufferSource();
+  ns.buffer = createNoiseBuffer(0.5);
+  const f = ac.createBiquadFilter(), g = ac.createGain();
+  ns.connect(f); f.connect(g); g.connect(ac.destination);
+  f.type = 'lowpass'; f.frequency.setValueAtTime(2000, now); f.frequency.exponentialRampToValueAtTime(200, now + 0.4);
+  g.gain.setValueAtTime(0.4, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+  ns.start(now); ns.stop(now + 0.55);
+  const o = ac.createOscillator(), g2 = ac.createGain();
+  o.connect(g2); g2.connect(ac.destination);
+  o.type = 'sine';
+  o.frequency.setValueAtTime(120, now); o.frequency.exponentialRampToValueAtTime(60, now + 0.3);
+  g2.gain.setValueAtTime(0.4, now); g2.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+  o.start(now); o.stop(now + 0.4);
+}
+
+/** 护盾挡住炸弹音效 */
+function playShieldBlockSound() {
+  ensureAudio();
+  const ac = audioCtx, now = ac.currentTime;
+  // 金属弹开声
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.connect(g); g.connect(ac.destination);
+  o.type = 'square';
+  o.frequency.setValueAtTime(1200, now);
+  o.frequency.exponentialRampToValueAtTime(400, now + 0.08);
+  g.gain.setValueAtTime(0.35, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+  o.start(now); o.stop(now + 0.18);
+  const ns = ac.createBufferSource();
+  ns.buffer = createNoiseBuffer(0.1);
+  const f = ac.createBiquadFilter(), g2 = ac.createGain();
+  ns.connect(f); f.connect(g2); g2.connect(ac.destination);
+  f.type = 'highpass'; f.frequency.value = 3000;
+  g2.gain.setValueAtTime(0.3, now); g2.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+  ns.start(now); ns.stop(now + 0.12);
+}
+
 function playWinSound() {
   ensureAudio();
   const ac = audioCtx;
@@ -623,7 +998,7 @@ let floatingTexts = [];
 let spawnTimer = 0, countdownTimer = null;
 let combo = 0, comboTimer = 0;
 let screenFlash = 0;
-let roundStartTime = 0; // 记录本关开始时间（用于极速通关）
+let roundStartTime = 0;
 
 const PLAYER = {
   x: CX, y: CY,
@@ -642,7 +1017,7 @@ canvas.addEventListener('mousemove', e => {
 document.getElementById('btnStart').addEventListener('click', () => {
   ensureAudio();
   level = 0;
-  stats.maxLevelCleared = 0; // 新游戏重置最高通关记录
+  stats.maxLevelCleared = 0;
   hideAllOverlays();
   beginRound();
 });
@@ -672,6 +1047,12 @@ function backToStart() {
   if (countdownTimer) clearInterval(countdownTimer);
   hudEl.classList.remove('active');
   lvlInfo.classList.remove('active');
+  itemBar.classList.remove('active');
+  // 清除所有效果
+  Object.keys(activeEffects).forEach(k => {
+    activeEffects[k].active = false;
+    if (activeEffects[k].timer !== undefined) activeEffects[k].timer = 0;
+  });
 }
 
 // ==================== 游戏控制 ====================
@@ -681,11 +1062,21 @@ function beginRound() {
   projectiles = [];
   particles = [];
   floatingTexts = [];
+  itemDrops = [];
   spawnTimer = 0;
+  itemSpawnTimer = 0;
   timeLeft = ROUND_TIME;
   combo = 0; comboTimer = 0;
   roundStartTime = performance.now();
   resetRoundStats();
+
+  // 每关开始清空道具栏，清除所有效果
+  ITEMS.forEach(it => itemBag[it.id] = 0);
+  updateItemBarUI();
+  Object.keys(activeEffects).forEach(k => {
+    activeEffects[k].active = false;
+    if (activeEffects[k].timer !== undefined) activeEffects[k].timer = 0;
+  });
 
   const lvl = LEVELS[level];
   document.getElementById('levelVal').textContent = level + 1;
@@ -697,6 +1088,7 @@ function beginRound() {
   document.getElementById('timerVal').classList.remove('warning');
   hudEl.classList.add('active');
   lvlInfo.classList.add('active');
+  itemBar.classList.add('active');
 
   if (countdownTimer) clearInterval(countdownTimer);
   countdownTimer = setInterval(() => {
@@ -717,15 +1109,19 @@ function beginRound() {
 function endRound() {
   state = 'ended';
   const lvl = LEVELS[level];
-  const elapsed = (performance.now() - roundStartTime) / 1000; // 本关用时（秒）
+  const elapsed = (performance.now() - roundStartTime) / 1000;
+
+  // 清除所有效果
+  Object.keys(activeEffects).forEach(k => {
+    activeEffects[k].active = false;
+    if (activeEffects[k].timer !== undefined) activeEffects[k].timer = 0;
+  });
 
   if (score >= lvl.target) {
-    // 过关——更新统计
     if (level + 1 > stats.maxLevelCleared) stats.maxLevelCleared = level + 1;
     if (stats.roundBombs === 0) stats.noBombWin = true;
     if (elapsed <= 30) stats.speedClear = true;
 
-    // 通关判定
     if (level >= LEVELS.length - 1) {
       playWinSound();
       setTimeout(playWinSound, 600);
@@ -747,7 +1143,6 @@ function endRound() {
     showOverlay('lose');
   }
 
-  // 过关/失败都检查一次成就
   checkAchievements();
 }
 
@@ -831,7 +1226,7 @@ function mainLoop(ts) {
     // Combo
     if (comboTimer > 0) { comboTimer -= dt; if (comboTimer <= 0) combo = 0; }
 
-    // 生成
+    // 生成水果
     spawnTimer += dt * 1000;
     if (spawnTimer >= lvl.spawnInterval) {
       spawnTimer -= lvl.spawnInterval;
@@ -839,8 +1234,50 @@ function mainLoop(ts) {
       if (Math.random() < 0.3) spawnProjectile();
     }
 
+    // 道具掉落生成
+    itemSpawnTimer += dt * 1000;
+    if (itemSpawnTimer >= ITEM_SPAWN_INTERVAL) {
+      itemSpawnTimer -= ITEM_SPAWN_INTERVAL;
+      if (Math.random() < ITEM_DROP_CHANCE) {
+        spawnItemDrop();
+      }
+    }
+
+    // 更新道具效果计时
+    ['magnet', 'slow', 'double', 'freeze'].forEach(k => {
+      if (activeEffects[k].active) {
+        activeEffects[k].timer -= dt * 1000;
+        if (activeEffects[k].timer <= 0) {
+          activeEffects[k].active = false;
+          activeEffects[k].timer = 0;
+        }
+      }
+    });
+
     // 炸弹闪烁衰减
     if (screenFlash > 0) screenFlash -= dt * 3;
+
+    // 计算速度修正
+    const speedMod = activeEffects.slow.active ? 0.5 : 1.0;
+    const freezeMod = activeEffects.freeze.active ? 0.08 : 1.0;
+    const effectiveSpeedMod = speedMod * freezeMod;
+    const h = headPos();
+
+    // 磁铁效果：吸附水果
+    if (activeEffects.magnet.active) {
+      const magnetRange = 200;
+      projectiles.forEach(p => {
+        if (p.eaten || p.isBomb) return;
+        const d = dist(p.x, p.y, h.x, h.y);
+        if (d < magnetRange && d > 1) {
+          const force = (1 - d / magnetRange) * 500;
+          const ax = (h.x - p.x) / d * force;
+          const ay = (h.y - p.y) / d * force;
+          p.vx += ax * dt;
+          p.vy += ay * dt;
+        }
+      });
+    }
 
     // 更新投射物
     projectiles.forEach(p => {
@@ -849,37 +1286,48 @@ function mainLoop(ts) {
         else { p.scale += dt*3; p.alpha -= dt*4; }
         return;
       }
-      p.x += p.vx * dt;
-      p.y += p.vy * dt;
+
+      p.x += p.vx * dt * effectiveSpeedMod;
+      p.y += p.vy * dt * effectiveSpeedMod;
       p.rot += p.rotSpd * dt;
 
       if (hitTest(p)) {
         p.eaten = true;
-        const h = headPos();
         combo++;
         comboTimer = 2.5;
         if (combo > stats.maxCombo) stats.maxCombo = combo;
 
         if (p.isBomb) {
           // 💣 炸弹
-          score = Math.max(0, score + p.def.score);
-          stats.roundBombs++;
-          combo = 0;
-          document.getElementById('scoreVal').textContent = score;
-          playBombSound();
-          spawnParticles(h.x, h.y, '#ff4400', 30, true);
-          spawnParticles(h.x, h.y, '#ffaa00', 20, true);
-          spawnParticles(h.x, h.y, '#ff0000', 15, false);
-          addFloatingText(h.x - 30, h.y - 20, p.def.score + '分', '#ff3333');
-          screenFlash = 1;
-          wrapper.classList.remove('shake');
-          void wrapper.offsetWidth;
-          wrapper.classList.add('shake');
+          if (activeEffects.shield.active) {
+            // 护盾挡住！
+            activeEffects.shield.active = false;
+            stats.shieldBlocked = true;
+            playShieldBlockSound();
+            spawnParticles(h.x, h.y, '#10b981', 30, true);
+            addFloatingText(h.x - 40, h.y - 20, '🛡️ 挡住了！', '#10b981');
+            screenFlash = 0.5;
+          } else {
+            score = Math.max(0, score + p.def.score);
+            stats.roundBombs++;
+            combo = 0;
+            document.getElementById('scoreVal').textContent = score;
+            playBombSound();
+            spawnParticles(h.x, h.y, '#ff4400', 30, true);
+            spawnParticles(h.x, h.y, '#ffaa00', 20, true);
+            spawnParticles(h.x, h.y, '#ff0000', 15, false);
+            addFloatingText(h.x - 30, h.y - 20, p.def.score + '分', '#ff3333');
+            screenFlash = 1;
+            wrapper.classList.remove('shake');
+            void wrapper.offsetWidth;
+            wrapper.classList.add('shake');
+          }
         } else {
           // 🍎 水果
           let pts = p.def.score;
           if (combo >= 5) pts = Math.floor(pts * 2);
           else if (combo >= 3) pts = Math.floor(pts * 1.5);
+          if (activeEffects.double.active) pts *= 2;
           score += pts;
           stats.roundScore = score;
           stats.roundFruits[p.def.name]++;
@@ -890,13 +1338,16 @@ function mainLoop(ts) {
           const lbl = combo >= 3 ? ('+' + pts + ' x' + combo + '连击！') : ('+' + pts);
           addFloatingText(h.x - 20, h.y - 20, lbl, combo >= 3 ? '#ffd700' : '#a8e063');
 
+          if (activeEffects.double.active) {
+            addFloatingText(h.x - 10, h.y - 45, '✖️ DOUBLE', '#ef4444');
+          }
+
           // 实时达标过关
           if (score >= LEVELS[level].target) {
             clearInterval(countdownTimer);
             endRound();
           }
 
-          // 吃水果后检查成就
           checkAchievements();
         }
       }
@@ -911,6 +1362,47 @@ function mainLoop(ts) {
     });
 
     projectiles = projectiles.filter(p => p.alpha > 0);
+
+    // 更新道具掉落物
+    itemDrops.forEach(d => {
+      if (d.eaten) {
+        d.scale += dt * 5;
+        d.alpha -= dt * 5;
+        return;
+      }
+      d.x += d.vx * dt * effectiveSpeedMod;
+      d.y += d.vy * dt * effectiveSpeedMod;
+      d.rot += d.rotSpd * dt;
+      d.glow += dt * 4;
+
+      // 碰撞检测（道具盒用较大判定范围）
+      const ddist = dist(d.x, d.y, h.x, h.y);
+      if (ddist < (24 + PLAYER.headR)) {
+        d.eaten = true;
+        // 收集道具
+        if (itemBag[d.def.id] < 3) {
+          itemBag[d.def.id]++;
+        } else {
+          // 已满3个，转为得分奖励
+          score += 15;
+          document.getElementById('scoreVal').textContent = score;
+          addFloatingText(d.x - 15, d.y - 15, '+15（道具已满）', '#aaa');
+        }
+        updateItemBarUI();
+        playItemPickupSound();
+        spawnParticles(d.x, d.y, d.def.color, 20, false);
+        addFloatingText(d.x - 15, d.y - 25, d.def.icon + ' ' + d.def.name, d.def.color);
+      }
+
+      // 越界
+      if (!d.eaten) {
+        const m = 80;
+        if (d.x<-m || d.x>W+m || d.y<-m || d.y>H+m) {
+          d.eaten = true; d.alpha = 0;
+        }
+      }
+    });
+    itemDrops = itemDrops.filter(d => d.alpha > 0);
 
     // 粒子
     particles.forEach(p => {
@@ -940,6 +1432,38 @@ function render() {
   ctx.fillStyle = bg;
   ctx.fillRect(0,0,W,H);
 
+  // 冻结效果滤镜
+  if (activeEffects.freeze.active) {
+    ctx.fillStyle = 'rgba(100,200,255,0.08)';
+    ctx.fillRect(0,0,W,H);
+    // 冰霜边缘
+    const freezeRatio = activeEffects.freeze.timer / 4000;
+    ctx.strokeStyle = 'rgba(150,220,255,' + (0.15 + freezeRatio * 0.15) + ')';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(2, 2, W-4, H-4);
+  }
+
+  // 磁铁效果范围指示
+  if (activeEffects.magnet.active && state === 'playing') {
+    const h = headPos();
+    const magnetRatio = activeEffects.magnet.timer / 5000;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(h.x, h.y, 200, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(59,130,246,' + (0.15 + Math.sin(performance.now()/300)*0.1) + ')';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 8]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // 内部光晕
+    const mg = ctx.createRadialGradient(h.x, h.y, 0, h.x, h.y, 200);
+    mg.addColorStop(0, 'rgba(59,130,246,' + (0.05 * magnetRatio) + ')');
+    mg.addColorStop(1, 'rgba(59,130,246,0)');
+    ctx.fillStyle = mg;
+    ctx.fill();
+    ctx.restore();
+  }
+
   // 炸弹红闪
   if (screenFlash > 0) {
     ctx.fillStyle = 'rgba(255,0,0,' + (screenFlash * 0.3) + ')';
@@ -962,6 +1486,24 @@ function render() {
     ctx.translate(p.x, p.y);
     ctx.rotate(p.rot);
     ctx.scale(p.scale, p.scale);
+
+    // 双倍得分光环
+    if (activeEffects.double.active && !p.eaten && !p.isBomb) {
+      ctx.shadowColor = '#ef4444';
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.arc(0, 0, p.def.radius + 4, 0, Math.PI*2);
+      ctx.strokeStyle = 'rgba(239,68,68,0.4)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+
+    // 冰冻覆盖
+    if (activeEffects.freeze.active && !p.eaten) {
+      ctx.shadowColor = '#06b6d4';
+      ctx.shadowBlur = 10;
+    }
 
     if (p.def.name === '蓝莓') {
       const r = p.def.radius;
@@ -988,6 +1530,68 @@ function render() {
       ctx.shadowBlur = p.isBomb ? 12 : 6;
       ctx.fillText(p.def.emoji, 0, 0);
     }
+
+    // 冰冻冰晶覆盖
+    if (activeEffects.freeze.active && !p.eaten) {
+      const r = p.def.radius;
+      ctx.globalAlpha = 0.35;
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(180,230,255,0.4)';
+      ctx.fill();
+      // 冰晶闪光
+      ctx.globalAlpha = 0.6;
+      ctx.beginPath();
+      ctx.arc(-r*0.3, -r*0.3, r*0.2, 0, Math.PI*2);
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+    }
+
+    ctx.restore();
+  });
+
+  // 道具掉落物
+  itemDrops.forEach(d => {
+    ctx.save();
+    ctx.globalAlpha = d.alpha;
+    ctx.translate(d.x, d.y);
+    ctx.rotate(d.rot);
+    ctx.scale(d.scale, d.scale);
+
+    // 发光效果
+    const glowSize = 15 + Math.sin(d.glow) * 5;
+    const glowGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, 24 + glowSize);
+    glowGrad.addColorStop(0, d.def.color + '60');
+    glowGrad.addColorStop(1, d.def.color + '00');
+    ctx.fillStyle = glowGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, 24 + glowSize, 0, Math.PI*2);
+    ctx.fill();
+
+    // 道具盒本体
+    ctx.shadowColor = d.def.color;
+    ctx.shadowBlur = 12;
+    // 外圈
+    ctx.beginPath();
+    ctx.arc(0, 0, 20, 0, Math.PI*2);
+    ctx.fillStyle = d.def.color + '30';
+    ctx.strokeStyle = d.def.color;
+    ctx.lineWidth = 2.5;
+    ctx.fill();
+    ctx.stroke();
+    // 内圈
+    ctx.beginPath();
+    ctx.arc(0, 0, 15, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fill();
+
+    // 图标
+    ctx.shadowBlur = 0;
+    ctx.font = '18px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(d.def.icon, 0, 1);
+
     ctx.restore();
   });
 
@@ -1027,6 +1631,54 @@ function render() {
     ctx.textAlign = 'center';
     ctx.fillText('🔥 ' + combo + ' 连击！', CX, 50);
     ctx.restore();
+  }
+
+  // 活跃效果指示器
+  if (state === 'playing') {
+    let effectY = 80;
+    const effectList = [];
+    if (activeEffects.magnet.active) effectList.push({ icon:'🧲', name:'磁铁', timer: activeEffects.magnet.timer, max: 5000, color:'#3b82f6' });
+    if (activeEffects.slow.active) effectList.push({ icon:'⏱️', name:'减速', timer: activeEffects.slow.timer, max: 5000, color:'#f59e0b' });
+    if (activeEffects.shield.active) effectList.push({ icon:'🛡️', name:'护盾', timer: -1, max: 1, color:'#10b981' });
+    if (activeEffects.double.active) effectList.push({ icon:'✖️', name:'双倍', timer: activeEffects.double.timer, max: 8000, color:'#ef4444' });
+    if (activeEffects.freeze.active) effectList.push({ icon:'❄️', name:'冰冻', timer: activeEffects.freeze.timer, max: 4000, color:'#06b6d4' });
+
+    effectList.forEach(ef => {
+      ctx.save();
+      const bx = 14, by = effectY, bw = 110, bh = 22;
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.strokeStyle = ef.color + '80';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(bx, by, bw, bh, 6);
+      ctx.fill();
+      ctx.stroke();
+
+      // 图标+名字
+      ctx.font = '12px "Segoe UI"';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(ef.icon + ' ' + ef.name, bx + 6, by + bh/2);
+
+      // 时间条
+      if (ef.timer >= 0) {
+        const ratio = Math.max(0, ef.timer / ef.max);
+        ctx.fillStyle = ef.color;
+        ctx.beginPath();
+        ctx.roundRect(bx + 4, by + bh - 5, (bw - 8) * ratio, 3, 2);
+        ctx.fill();
+      } else {
+        // 护盾：闪烁指示
+        ctx.fillStyle = ef.color;
+        ctx.beginPath();
+        ctx.roundRect(bx + 4, by + bh - 5, bw - 8, 3, 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+      effectY += 28;
+    });
   }
 
   // 最后10秒倒计时
@@ -1074,6 +1726,21 @@ function drawPlayer() {
   const hy = py + Math.sin(a)*PLAYER.headDist;
 
   ctx.save();
+
+  // 护盾视觉效果
+  if (activeEffects.shield.active) {
+    ctx.beginPath();
+    ctx.arc(px, py, PLAYER.bodyR + 14, 0, Math.PI*2);
+    const shieldGrad = ctx.createRadialGradient(px, py, PLAYER.bodyR, px, py, PLAYER.bodyR + 14);
+    shieldGrad.addColorStop(0, 'rgba(16,185,129,0.05)');
+    shieldGrad.addColorStop(0.7, 'rgba(16,185,129,0.15)');
+    shieldGrad.addColorStop(1, 'rgba(16,185,129,0.3)');
+    ctx.fillStyle = shieldGrad;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(16,185,129,' + (0.5 + Math.sin(performance.now()/200)*0.3) + ')';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
 
   // 身体
   const bodyG = ctx.createRadialGradient(px,py,0,px,py,PLAYER.bodyR);
