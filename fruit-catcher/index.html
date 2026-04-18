@@ -444,6 +444,34 @@ function playLoseSound() {
   });
 }
 
+/** 倒计时紧迫音效：最后5秒音调逐秒升高，最后3秒更急促 */
+function playTickSound(secondsLeft) {
+  ensureAudio();
+  const ac = audioCtx, now = ac.currentTime;
+  // 越接近0音调越高：10s→440Hz, 1s→1200Hz
+  const freq = 440 + (10 - secondsLeft) * 84;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.connect(g); g.connect(ac.destination);
+  o.type = secondsLeft <= 3 ? 'square' : 'sine';
+  o.frequency.setValueAtTime(freq, now);
+  g.gain.setValueAtTime(0, now);
+  g.gain.linearRampToValueAtTime(secondsLeft <= 3 ? 0.35 : 0.2, now + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.001, now + (secondsLeft <= 3 ? 0.15 : 0.1));
+  o.start(now); o.stop(now + 0.2);
+
+  // 最后3秒额外叠加低频心跳
+  if (secondsLeft <= 3) {
+    const o2 = ac.createOscillator(), g2 = ac.createGain();
+    o2.connect(g2); g2.connect(ac.destination);
+    o2.type = 'sine';
+    o2.frequency.setValueAtTime(80, now);
+    g2.gain.setValueAtTime(0, now);
+    g2.gain.linearRampToValueAtTime(0.3, now + 0.02);
+    g2.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+    o2.start(now); o2.stop(now + 0.3);
+  }
+}
+
 // ==================== 游戏状态 ====================
 let state = 'start'; // start | playing | win | lose | clear
 let level = 0, score = 0, timeLeft = ROUND_TIME;
@@ -471,7 +499,7 @@ canvas.addEventListener('mousemove', e => {
 // ==================== 事件绑定（用 addEventListener 代替 onclick） ====================
 document.getElementById('btnStart').addEventListener('click', () => {
   ensureAudio();
-  level = 0; score = 0;
+  level = 0;
   hideAllOverlays();
   beginRound();
 });
@@ -482,7 +510,6 @@ document.getElementById('btnNext').addEventListener('click', () => {
 });
 document.getElementById('btnRetry').addEventListener('click', () => {
   hideAllOverlays();
-  score = 0;
   beginRound();
 });
 document.getElementById('btnRestart1').addEventListener('click', backToStart);
@@ -509,6 +536,7 @@ function backToStart() {
 // ==================== 游戏控制 ====================
 function beginRound() {
   state = 'playing';
+  score = 0; // 每关重新计算分数
   projectiles = [];
   particles = [];
   floatingTexts = [];
@@ -532,7 +560,10 @@ function beginRound() {
     if (state !== 'playing') return;
     timeLeft--;
     document.getElementById('timerVal').textContent = Math.max(0, timeLeft);
-    if (timeLeft <= 10) document.getElementById('timerVal').classList.add('warning');
+    if (timeLeft <= 10) {
+      document.getElementById('timerVal').classList.add('warning');
+      playTickSound(timeLeft); // 倒计时紧迫音效
+    }
     if (timeLeft <= 0) {
       clearInterval(countdownTimer);
       endRound();
@@ -702,6 +733,12 @@ function mainLoop(ts) {
           spawnParticles(h.x, h.y, pts >= 12 ? '#ffd700' : '#fff', 16, false);
           const lbl = combo >= 3 ? ('+' + pts + ' x' + combo + '连击！') : ('+' + pts);
           addFloatingText(h.x - 20, h.y - 20, lbl, combo >= 3 ? '#ffd700' : '#a8e063');
+
+          // 实时检测是否达到目标分数，达标立即过关
+          if (score >= LEVELS[level].target) {
+            clearInterval(countdownTimer);
+            endRound();
+          }
         }
       }
 
@@ -810,6 +847,26 @@ function render() {
     ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 20;
     ctx.textAlign = 'center';
     ctx.fillText('🔥 ' + combo + ' 连击！', CX, 50);
+    ctx.restore();
+  }
+
+  // 最后10秒画面倒计时
+  if (state === 'playing' && timeLeft <= 10 && timeLeft > 0) {
+    ctx.save();
+    // 脉冲缩放效果：每秒前半段放大，后半段缩小
+    const phase = (performance.now() % 1000) / 1000;
+    const scale = 1 + Math.sin(phase * Math.PI) * 0.3;
+    ctx.translate(CX, CY - 80);
+    ctx.scale(scale, scale);
+    ctx.font = 'bold 120px "Segoe UI"';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // 最后5秒红色，5-10秒橙色
+    const urgent = timeLeft <= 5;
+    ctx.fillStyle = urgent ? 'rgba(255,60,60,0.5)' : 'rgba(255,160,40,0.4)';
+    ctx.shadowColor = urgent ? '#ff3333' : '#ff8800';
+    ctx.shadowBlur = 40;
+    ctx.fillText(timeLeft, 0, 0);
     ctx.restore();
   }
 
