@@ -3,9 +3,9 @@
    画布尺寸 + 5大主题 + 50关 + 水果/炸弹/道具/人物定义
    ========================================================== */
 
-// ---- 画布尺寸 ----
-const W = 800, H = 600;
-const CX = W / 2, CY = H / 2;
+// ---- 画布尺寸（由 game.js 的 resizeCanvas 动态设置） ----
+let W = window.innerWidth - 32, H = window.innerHeight - 32;
+let CX = W / 2, CY = H / 2;
 
 // ==================== 五大主题定义 ====================
 
@@ -22,26 +22,26 @@ const THEMES = [
       headColor1: '#ffe066', headColor2: '#e07000',
       accentColor: '#88cc44',
       bodyR: 28, headR: 20, headDist: 38,
-      drawExtra: 'leaf',  // 桃叶发饰
+      drawExtra: 'leaf',
     },
     bg: {
       colors: ['#2d1b3d', '#1a0a2e', '#3d2060'],
-      accentHue: 320,  // 粉紫
-      particles: 'petal',  // 花瓣粒子
+      accentHue: 320,
+      particles: 'petal',
       ringColor: 'rgba(255,180,200,0.04)',
     },
     fruits: [
       { name: '水蜜桃', emoji: '🍑', weight: 1.0, score: 8,  radius: 22, speedMult: 1.8 },
-      { name: '桃子',   emoji: '🍑', weight: 0.8, score: 10, radius: 20, speedMult: 2.0 },
-      { name: '黄桃',   emoji: '🍑', weight: 0.7, score: 12, radius: 21, speedMult: 2.2 },
-      { name: '李子',   emoji: '🫐', weight: 0.4, score: 5,  radius: 14, speedMult: 2.8 },
-      { name: '布林',   emoji: '🫐', weight: 0.5, score: 6,  radius: 15, speedMult: 2.6 },
-      { name: '杏',     emoji: '🍊', weight: 0.6, score: 7,  radius: 16, speedMult: 2.4 },
-      { name: '油桃',   emoji: '🍑', weight: 0.9, score: 9,  radius: 19, speedMult: 2.1 },
-      { name: '乌梅',   emoji: '🫐', weight: 0.3, score: 15, radius: 13, speedMult: 3.0 },
+      { name: '蟠桃',   emoji: '🌸', weight: 0.8, score: 10, radius: 20, speedMult: 2.0 },
+      { name: '黄桃',   emoji: '🟡', weight: 0.7, score: 12, radius: 21, speedMult: 2.2 },
+      { name: '李子',   emoji: '💜', weight: 0.4, score: 5,  radius: 14, speedMult: 2.8 },
+      { name: '西梅',   emoji: '🟣', weight: 0.5, score: 6,  radius: 15, speedMult: 2.6 },
+      { name: '杏',     emoji: '🟠', weight: 0.6, score: 7,  radius: 16, speedMult: 2.4 },
+      { name: '油桃',   emoji: '🔴', weight: 0.9, score: 9,  radius: 19, speedMult: 2.1 },
+      { name: '乌梅',   emoji: '⚫', weight: 0.3, score: 15, radius: 13, speedMult: 3.0 },
     ],
-    soundStyle: 'sweet',   // 甜蜜风音效
-    bgmStyle: 'pastoral',  // 田园风BGM
+    soundStyle: 'sweet',
+    bgmStyle: 'pastoral',
   },
 
   // ---- 主题二：柑橘岛（第11-20关）----
@@ -56,23 +56,23 @@ const THEMES = [
       headColor1: '#ffcc33', headColor2: '#e08800',
       accentColor: '#3388cc',
       bodyR: 28, headR: 20, headDist: 38,
-      drawExtra: 'hat',  // 航海帽
+      drawExtra: 'hat',
     },
     bg: {
       colors: ['#0a2a4a', '#061a30', '#1a3a5a'],
-      accentHue: 35,  // 金橙
-      particles: 'sparkle',  // 海面闪光
+      accentHue: 35,
+      particles: 'sparkle',
       ringColor: 'rgba(255,200,100,0.04)',
     },
     fruits: [
       { name: '橙子', emoji: '🍊', weight: 1.2, score: 5,  radius: 24, speedMult: 1.5 },
-      { name: '橘子', emoji: '🍊', weight: 1.0, score: 6,  radius: 22, speedMult: 1.7 },
-      { name: '柚子', emoji: '🍊', weight: 2.0, score: 3,  radius: 30, speedMult: 0.8 },
+      { name: '橘子', emoji: '🟠', weight: 1.0, score: 6,  radius: 22, speedMult: 1.7 },
+      { name: '柚子', emoji: '🟡', weight: 2.0, score: 3,  radius: 30, speedMult: 0.8 },
       { name: '柠檬', emoji: '🍋', weight: 0.6, score: 8,  radius: 18, speedMult: 2.3 },
-      { name: '青柠', emoji: '🍋', weight: 0.5, score: 9,  radius: 16, speedMult: 2.5 },
-      { name: '金桔', emoji: '🍊', weight: 0.3, score: 12, radius: 12, speedMult: 3.0 },
-      { name: '沃柑', emoji: '🍊', weight: 0.9, score: 7,  radius: 21, speedMult: 1.9 },
-      { name: '芦柑', emoji: '🍊', weight: 1.0, score: 6,  radius: 22, speedMult: 1.8 },
+      { name: '青柠', emoji: '💚', weight: 0.5, score: 9,  radius: 16, speedMult: 2.5 },
+      { name: '金桔', emoji: '🟡', weight: 0.3, score: 12, radius: 12, speedMult: 3.0 },
+      { name: '沃柑', emoji: '🟧', weight: 0.9, score: 7,  radius: 21, speedMult: 1.9 },
+      { name: '芦柑', emoji: '🔶', weight: 1.0, score: 6,  radius: 22, speedMult: 1.8 },
     ],
     soundStyle: 'fresh',
     bgmStyle: 'ocean',
@@ -90,22 +90,22 @@ const THEMES = [
       headColor1: '#8060e0', headColor2: '#4030a0',
       accentColor: '#60d0ff',
       bodyR: 28, headR: 20, headDist: 38,
-      drawExtra: 'wings',  // 精灵翅膀
+      drawExtra: 'wings',
     },
     bg: {
       colors: ['#1a0a30', '#0a0520', '#2a1040'],
-      accentHue: 270,  // 紫
-      particles: 'firefly',  // 萤火虫
+      accentHue: 270,
+      particles: 'firefly',
       ringColor: 'rgba(150,100,255,0.04)',
     },
     fruits: [
       { name: '草莓',   emoji: '🍓', weight: 0.6, score: 10, radius: 17, speedMult: 2.3 },
       { name: '蓝莓',   emoji: '🫐', weight: 0.2, score: 20, radius: 11, speedMult: 3.2 },
-      { name: '桑葚',   emoji: '🫐', weight: 0.3, score: 18, radius: 12, speedMult: 3.0 },
+      { name: '桑葚',   emoji: '🖤', weight: 0.3, score: 18, radius: 12, speedMult: 3.0 },
       { name: '猕猴桃', emoji: '🥝', weight: 1.0, score: 8,  radius: 20, speedMult: 1.8 },
-      { name: '树莓',   emoji: '🍓', weight: 0.4, score: 15, radius: 14, speedMult: 2.6 },
+      { name: '树莓',   emoji: '❤️', weight: 0.4, score: 15, radius: 14, speedMult: 2.6 },
       { name: '葡萄',   emoji: '🍇', weight: 0.8, score: 7,  radius: 18, speedMult: 2.0 },
-      { name: '提子',   emoji: '🍇', weight: 0.7, score: 9,  radius: 17, speedMult: 2.1 },
+      { name: '提子',   emoji: '🟢', weight: 0.7, score: 9,  radius: 17, speedMult: 2.1 },
       { name: '圣女果', emoji: '🍅', weight: 0.5, score: 12, radius: 15, speedMult: 2.4 },
     ],
     soundStyle: 'magic',
@@ -124,20 +124,20 @@ const THEMES = [
       headColor1: '#c8a020', headColor2: '#8a6a10',
       accentColor: '#40c040',
       bodyR: 28, headR: 20, headDist: 38,
-      drawExtra: 'crown',  // 菠萝叶皇冠
+      drawExtra: 'crown',
     },
     bg: {
       colors: ['#0a2a10', '#051a08', '#1a3a1a'],
-      accentHue: 120,  // 绿
-      particles: 'leaf',  // 树叶
+      accentHue: 120,
+      particles: 'leaf',
       ringColor: 'rgba(100,255,100,0.04)',
     },
     fruits: [
       { name: '香蕉',   emoji: '🍌', weight: 1.3, score: 5,  radius: 24, speedMult: 1.4 },
       { name: '芒果',   emoji: '🥭', weight: 0.8, score: 10, radius: 20, speedMult: 2.0 },
       { name: '菠萝',   emoji: '🍍', weight: 1.8, score: 3,  radius: 28, speedMult: 0.9 },
-      { name: '榴莲',   emoji: '🍈', weight: 0.4, score: 25, radius: 26, speedMult: 2.8 },
-      { name: '火龙果', emoji: '🐉', weight: 0.5, score: 20, radius: 22, speedMult: 2.4 },
+      { name: '榴莲',   emoji: '🟤', weight: 0.4, score: 25, radius: 26, speedMult: 2.8 },
+      { name: '火龙果', emoji: '🩷', weight: 0.5, score: 20, radius: 22, speedMult: 2.4 },
       { name: '荔枝',   emoji: '🔴', weight: 0.3, score: 15, radius: 14, speedMult: 2.8 },
       { name: '龙眼',   emoji: '⚪', weight: 0.25, score: 18, radius: 13, speedMult: 3.0 },
       { name: '椰子',   emoji: '🥥', weight: 2.5, score: 2,  radius: 30, speedMult: 0.7 },
@@ -158,24 +158,24 @@ const THEMES = [
       headColor1: '#ff3030', headColor2: '#cc1010',
       accentColor: '#ffd700',
       bodyR: 28, headR: 20, headDist: 38,
-      drawExtra: 'crown_gold',  // 金色皇冠
+      drawExtra: 'crown_gold',
     },
     bg: {
       colors: ['#2a0a0a', '#1a0505', '#3a1515'],
-      accentHue: 0,  // 红
-      particles: 'spark',  // 金色火花
+      accentHue: 0,
+      particles: 'spark',
       ringColor: 'rgba(255,100,50,0.04)',
     },
     fruits: [
       { name: '苹果',   emoji: '🍎', weight: 1.0, score: 5,  radius: 22, speedMult: 1.6 },
       { name: '梨',     emoji: '🍐', weight: 1.2, score: 4,  radius: 23, speedMult: 1.3 },
-      { name: '山楂',   emoji: '🍎', weight: 0.2, score: 18, radius: 12, speedMult: 3.2 },
-      { name: '沙梨',   emoji: '🍐', weight: 1.5, score: 4,  radius: 25, speedMult: 1.1 },
-      { name: '香梨',   emoji: '🍐', weight: 0.9, score: 6,  radius: 20, speedMult: 1.8 },
-      { name: '枇杷',   emoji: '🍊', weight: 0.4, score: 14, radius: 16, speedMult: 2.5 },
+      { name: '山楂',   emoji: '🔴', weight: 0.2, score: 18, radius: 12, speedMult: 3.2 },
+      { name: '沙梨',   emoji: '🟡', weight: 1.5, score: 4,  radius: 25, speedMult: 1.1 },
+      { name: '香梨',   emoji: '💚', weight: 0.9, score: 6,  radius: 20, speedMult: 1.8 },
+      { name: '枇杷',   emoji: '🟠', weight: 0.4, score: 14, radius: 16, speedMult: 2.5 },
       { name: '西瓜',   emoji: '🍉', weight: 2.2, score: 2,  radius: 32, speedMult: 0.8 },
       { name: '哈密瓜', emoji: '🍈', weight: 2.0, score: 3,  radius: 30, speedMult: 0.9 },
-      { name: '石榴',   emoji: '🍎', weight: 0.35, score: 22, radius: 18, speedMult: 2.6 },
+      { name: '石榴',   emoji: '💎', weight: 0.35, score: 22, radius: 18, speedMult: 2.6 },
     ],
     soundStyle: 'royal',
     bgmStyle: 'royal',
@@ -256,9 +256,8 @@ const ITEMS = [
   { id: 'magnet',    name: '磁铁',     icon: '🧲', color: '#3b82f6', desc: '自动吸附附近水果5秒',   duration: 5000 },
   { id: 'slow',      name: '时间减缓', icon: '⏱️', color: '#f59e0b', desc: '全场速度降低50%持续5秒', duration: 5000 },
   { id: 'shield',    name: '护盾',     icon: '🛡️', color: '#10b981', desc: '免疫下一次炸弹伤害',      duration: 0 },
-  { id: 'double',    name: '双倍得分', icon: '✖️', color: '#ef4444', desc: '得分翻倍持续8秒',         duration: 8000 },
-  { id: 'clearbomb', name: '炸弹清除', icon: '💥', color: '#f97316', desc: '清除场上所有炸弹',        duration: 0 },
-  { id: 'freeze',    name: '冰冻全场', icon: '❄️', color: '#06b6d4', desc: '冻结所有水果4秒',         duration: 4000 },
+  { id: 'double',    name: '双倍得分', icon: '✖️2', color: '#ef4444', desc: '得分翻倍持续8秒',         duration: 8000 },
+  { id: 'addtime',   name: '增加计时', icon: '⏰', color: '#a78bfa', desc: '增加5秒倒计时',           duration: 0 },
 ];
 
 // ---- 道具掉落参数 ----

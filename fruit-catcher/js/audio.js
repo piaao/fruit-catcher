@@ -567,14 +567,13 @@ function playItemUseSound(itemId) {
     slow: [660, 523, 440],
     shield: [523, 659, 784],
     double: [784, 988, 1175],
-    clearbomb: [330, 220, 147],
-    freeze: [1175, 988, 784],
+    addtime: [880, 1047, 1319],
   };
   const freqs = freqMap[itemId] || [660, 880];
   freqs.forEach((freq, i) => {
     const o = ac.createOscillator(), g = ac.createGain();
     o.connect(g); g.connect(ac.destination);
-    o.type = itemId === 'freeze' ? 'triangle' : (itemId === 'clearbomb' ? 'sawtooth' : 'sine');
+    o.type = 'sine';
     const t = now + i * 0.07;
     o.frequency.setValueAtTime(freq, t);
     g.gain.setValueAtTime(0, t);
@@ -584,24 +583,6 @@ function playItemUseSound(itemId) {
   });
 }
 
-/** 炸弹清除音效 */
-function playBombClearSound() {
-  ensureAudio();
-  const ac = audioCtx, now = ac.currentTime;
-  const ns = ac.createBufferSource();
-  ns.buffer = createNoiseBuffer(0.5);
-  const f = ac.createBiquadFilter(), g = ac.createGain();
-  ns.connect(f); f.connect(g); g.connect(ac.destination);
-  f.type = 'lowpass'; f.frequency.setValueAtTime(2000, now); f.frequency.exponentialRampToValueAtTime(200, now + 0.4);
-  g.gain.setValueAtTime(0.4, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
-  ns.start(now); ns.stop(now + 0.55);
-  const o = ac.createOscillator(), g2 = ac.createGain();
-  o.connect(g2); g2.connect(ac.destination);
-  o.type = 'sine';
-  o.frequency.setValueAtTime(120, now); o.frequency.exponentialRampToValueAtTime(60, now + 0.3);
-  g2.gain.setValueAtTime(0.4, now); g2.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-  o.start(now); o.stop(now + 0.4);
-}
 
 /** 护盾挡住炸弹音效 */
 function playShieldBlockSound() {

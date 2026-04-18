@@ -16,11 +16,27 @@ const achToast  = document.getElementById('achievementToast');
 const achNameEl = document.getElementById('achName');
 const achDescEl = document.getElementById('achDesc');
 
+// ==================== 全屏自适应 ====================
+function resizeCanvas() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  CX = W / 2;
+  CY = H / 2;
+  canvas.width = W;
+  canvas.height = H;
+  PLAYER.x = CX;
+  PLAYER.y = CY;
+}
+// resize 时同步刷新背景粒子
+window.addEventListener('resize', () => { resizeCanvas(); if (bgParticles.length > 0) initBgParticles(); });
+resizeCanvas();
+
 const overlays = {
   start: document.getElementById('startScreen'),
   win:   document.getElementById('winScreen'),
   lose:  document.getElementById('loseScreen'),
   clear: document.getElementById('clearScreen'),
+  pause: document.getElementById('pauseScreen'),
 };
 
 // ==================== 游戏状态 ====================
@@ -88,6 +104,54 @@ document.getElementById('btnRestart1').addEventListener('click', backToStart);
 document.getElementById('btnRestart2').addEventListener('click', backToStart);
 document.getElementById('btnRestart3').addEventListener('click', backToStart);
 
+// ---- 暂停功能 ----
+document.getElementById('btnResume').addEventListener('click', resumeGame);
+document.getElementById('btnRetryLevel').addEventListener('click', () => {
+  hideAllOverlays();
+  beginRound();
+});
+document.getElementById('btnBackHome').addEventListener('click', backToStart);
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (state === 'playing') {
+      pauseGame();
+    } else if (state === 'paused') {
+      resumeGame();
+    }
+  }
+});
+
+function pauseGame() {
+  state = 'paused';
+  if (countdownTimer) clearInterval(countdownTimer);
+  if (typeof stopBGM === 'function') stopBGM();
+  const lvl = LEVELS[level];
+  document.getElementById('pauseInfo').textContent =
+    currentTheme.emoji + ' 第 ' + (level + 1) + ' 关 — ' + lvl.name + '  得分：' + score + '/' + lvl.target;
+  showOverlay('pause');
+}
+
+function resumeGame() {
+  hideAllOverlays();
+  state = 'playing';
+  if (typeof playThemeBGM === 'function') playThemeBGM(currentTheme.bgmStyle);
+  // 恢复倒计时
+  countdownTimer = setInterval(() => {
+    if (state !== 'playing') return;
+    timeLeft--;
+    document.getElementById('timerVal').textContent = Math.max(0, timeLeft);
+    if (timeLeft <= 10) {
+      document.getElementById('timerVal').classList.add('warning');
+      playTickSound(timeLeft);
+    }
+    if (timeLeft <= 0) {
+      clearInterval(countdownTimer);
+      endRound();
+    }
+  }, 1000);
+}
+
 function hideAllOverlays() {
   Object.values(overlays).forEach(el => el.classList.add('hidden'));
 }
@@ -147,7 +211,8 @@ function drawThemeBackground() {
   const t = performance.now() / 1000;
 
   // 基础渐变背景
-  const grad = ctx.createRadialGradient(CX, CY, 0, CX, CY, 500);
+  const maxDim = Math.max(W, H);
+  const grad = ctx.createRadialGradient(CX, CY, 0, CX, CY, maxDim * 0.7);
   grad.addColorStop(0, bg.colors[0]);
   grad.addColorStop(0.6, bg.colors[1]);
   grad.addColorStop(1, bg.colors[2]);
@@ -156,14 +221,15 @@ function drawThemeBackground() {
 
   // 主题色光环
   const hue = bg.accentHue;
-  const hGrad = ctx.createRadialGradient(CX, CY - 100, 0, CX, CY, 400);
+  const hGrad = ctx.createRadialGradient(CX, CY - 100, 0, CX, CY, maxDim * 0.5);
   hGrad.addColorStop(0, 'hsla(' + hue + ',60%,40%,0.08)');
   hGrad.addColorStop(1, 'hsla(' + hue + ',60%,20%,0)');
   ctx.fillStyle = hGrad;
   ctx.fillRect(0, 0, W, H);
 
   // 背景圆环
-  for (let r = 120; r < 400; r += 80) {
+  const ringStep = maxDim * 0.16;
+  for (let r = ringStep; r < maxDim * 0.7; r += ringStep) {
     ctx.beginPath();
     ctx.arc(CX, CY, r, 0, Math.PI * 2);
     ctx.strokeStyle = bg.ringColor;
@@ -477,6 +543,9 @@ function beginRound() {
       endRound();
     }
   }, 1000);
+
+  // 恢复BGM
+  if (typeof playThemeBGM === 'function') playThemeBGM(theme.bgmStyle);
 }
 
 function endRound() {
@@ -623,7 +692,7 @@ function mainLoop(ts) {
     }
 
     // 更新道具效果计时
-    ['magnet', 'slow', 'double', 'freeze'].forEach(k => {
+    ['magnet', 'slow', 'double'].forEach(k => {
       if (activeEffects[k].active) {
         activeEffects[k].timer -= dt * 1000;
         if (activeEffects[k].timer <= 0) {
@@ -638,8 +707,6 @@ function mainLoop(ts) {
 
     // 计算速度修正
     const speedMod = activeEffects.slow.active ? 0.5 : 1.0;
-    const freezeMod = activeEffects.freeze.active ? 0.08 : 1.0;
-    const effectiveSpeedMod = speedMod * freezeMod;
     const h = headPos();
 
     // 磁铁效果：吸附水果
@@ -666,8 +733,8 @@ function mainLoop(ts) {
         return;
       }
 
-      p.x += p.vx * dt * effectiveSpeedMod;
-      p.y += p.vy * dt * effectiveSpeedMod;
+      p.x += p.vx * dt * speedMod;
+      p.y += p.vy * dt * speedMod;
       p.rot += p.rotSpd * dt;
 
       if (hitTest(p)) {
@@ -715,7 +782,7 @@ function mainLoop(ts) {
           addFloatingText(h.x - 20, h.y - 20, lbl, combo >= 3 ? '#ffd700' : currentTheme.player.accentColor);
 
           if (activeEffects.double.active) {
-            addFloatingText(h.x - 10, h.y - 45, '✖️ DOUBLE', '#ef4444');
+            addFloatingText(h.x - 10, h.y - 45, '✖️2 DOUBLE', '#ef4444');
           }
 
           if (score >= LEVELS[level].target) {
@@ -745,8 +812,8 @@ function mainLoop(ts) {
         d.alpha -= dt * 5;
         return;
       }
-      d.x += d.vx * dt * effectiveSpeedMod;
-      d.y += d.vy * dt * effectiveSpeedMod;
+      d.x += d.vx * dt * speedMod;
+      d.y += d.vy * dt * speedMod;
       d.rot += d.rotSpd * dt;
       d.glow += dt * 4;
 
@@ -800,16 +867,6 @@ function render() {
   // 主题背景
   drawThemeBackground();
 
-  // 冻结效果滤镜
-  if (activeEffects.freeze.active) {
-    ctx.fillStyle = 'rgba(100,200,255,0.08)';
-    ctx.fillRect(0, 0, W, H);
-    const freezeRatio = activeEffects.freeze.timer / 4000;
-    ctx.strokeStyle = 'rgba(150,220,255,' + (0.15 + freezeRatio * 0.15) + ')';
-    ctx.lineWidth = 4;
-    ctx.strokeRect(2, 2, W - 4, H - 4);
-  }
-
   // 磁铁效果范围指示
   if (activeEffects.magnet.active && state === 'playing') {
     const h = headPos();
@@ -856,12 +913,6 @@ function render() {
       ctx.shadowBlur = 0;
     }
 
-    // 冰冻覆盖
-    if (activeEffects.freeze.active && !p.eaten) {
-      ctx.shadowColor = '#06b6d4';
-      ctx.shadowBlur = 10;
-    }
-
     // 绘制水果
     ctx.font = (p.def.radius * 1.7) + 'px serif';
     ctx.textAlign = 'center';
@@ -869,21 +920,6 @@ function render() {
     ctx.shadowColor = p.isBomb ? '#ff4400' : currentTheme.player.accentColor;
     ctx.shadowBlur = p.isBomb ? 12 : 6;
     ctx.fillText(p.def.emoji, 0, 0);
-
-    // 冰冻冰晶覆盖
-    if (activeEffects.freeze.active && !p.eaten) {
-      const r = p.def.radius;
-      ctx.globalAlpha = 0.35;
-      ctx.beginPath();
-      ctx.arc(0, 0, r, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(180,230,255,0.4)';
-      ctx.fill();
-      ctx.globalAlpha = 0.6;
-      ctx.beginPath();
-      ctx.arc(-r * 0.3, -r * 0.3, r * 0.2, 0, Math.PI * 2);
-      ctx.fillStyle = '#fff';
-      ctx.fill();
-    }
 
     ctx.restore();
   });
@@ -974,8 +1010,7 @@ function render() {
     if (activeEffects.magnet.active) effectList.push({ icon: '🧲', name: '磁铁', timer: activeEffects.magnet.timer, max: 5000, color: '#3b82f6' });
     if (activeEffects.slow.active) effectList.push({ icon: '⏱️', name: '减速', timer: activeEffects.slow.timer, max: 5000, color: '#f59e0b' });
     if (activeEffects.shield.active) effectList.push({ icon: '🛡️', name: '护盾', timer: -1, max: 1, color: '#10b981' });
-    if (activeEffects.double.active) effectList.push({ icon: '✖️', name: '双倍', timer: activeEffects.double.timer, max: 8000, color: '#ef4444' });
-    if (activeEffects.freeze.active) effectList.push({ icon: '❄️', name: '冰冻', timer: activeEffects.freeze.timer, max: 4000, color: '#06b6d4' });
+    if (activeEffects.double.active) effectList.push({ icon: '✖️2', name: '双倍', timer: activeEffects.double.timer, max: 8000, color: '#ef4444' });
 
     effectList.forEach(ef => {
       ctx.save();

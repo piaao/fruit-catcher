@@ -17,7 +17,6 @@ let activeEffects = {
   slow:     { active: false, timer: 0 },
   shield:   { active: false },
   double:   { active: false, timer: 0 },
-  freeze:   { active: false, timer: 0 },
 };
 
 // ---- 道具使用提示 ----
@@ -128,29 +127,17 @@ function useItem(slotIndex) {
     case 'double':
       activeEffects.double.active = true;
       activeEffects.double.timer = def.duration;
-      showItemHint('✖️ 双倍得分！持续8秒');
+      showItemHint('✖️2 双倍得分！持续8秒');
       spawnParticles(h.x, h.y, '#ef4444', 25, true);
       break;
 
-    case 'clearbomb':
-      let cleared = 0;
-      projectiles.forEach(p => {
-        if (p.isBomb && !p.eaten) {
-          p.eaten = true;
-          spawnParticles(p.x, p.y, '#f97316', 20, true);
-          spawnParticles(p.x, p.y, '#ff4400', 15, false);
-          cleared++;
-        }
-      });
-      showItemHint('💥 清除了 ' + cleared + ' 个炸弹！');
-      if (cleared > 0) playBombClearSound();
-      break;
-
-    case 'freeze':
-      activeEffects.freeze.active = true;
-      activeEffects.freeze.timer = def.duration;
-      showItemHint('❄️ 全场冰冻4秒！');
-      spawnParticles(h.x, h.y, '#06b6d4', 30, true);
+    case 'addtime':
+      timeLeft += 5;
+      document.getElementById('timerVal').textContent = Math.max(0, timeLeft);
+      document.getElementById('timerVal').classList.remove('warning');
+      showItemHint('⏰ 时间+5秒！当前剩余：' + timeLeft + '秒');
+      spawnParticles(h.x, h.y, '#a78bfa', 25, true);
+      addFloatingText(h.x - 30, h.y - 40, '+5秒', '#a78bfa');
       break;
   }
 
@@ -175,7 +162,7 @@ function resetItemBag() {
 /* ---- 键盘监听 ---- */
 document.addEventListener('keydown', e => {
   const key = parseInt(e.key);
-  if (key >= 1 && key <= 6) {
+  if (key >= 1 && key <= 5) {
     useItem(key - 1);
   }
 });
