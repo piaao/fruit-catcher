@@ -804,11 +804,36 @@ function render() {
     ctx.translate(p.x, p.y);
     ctx.rotate(p.rot);
     ctx.scale(p.scale, p.scale);
-    ctx.font = (p.def.radius * 1.7) + 'px serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.shadowColor = p.isBomb ? '#ff4400' : '#fff';
-    ctx.shadowBlur = p.isBomb ? 12 : 6;
-    ctx.fillText(p.def.emoji, 0, 0);
+
+    if (p.def.name === '蓝莓') {
+      // 手绘蓝莓（替代🫐，兼容不支持该emoji的系统）
+      const r = p.def.radius;
+      ctx.shadowColor = '#6366f1'; ctx.shadowBlur = 8;
+      // 底部小圆（3颗浆果）
+      const drawBerry = (bx, by, br) => {
+        const g = ctx.createRadialGradient(bx - br*0.2, by - br*0.3, 0, bx, by, br);
+        g.addColorStop(0, '#818cf8'); g.addColorStop(0.6, '#4f46e5'); g.addColorStop(1, '#312e81');
+        ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI*2); ctx.fillStyle = g; ctx.fill();
+        // 高光
+        ctx.beginPath(); ctx.arc(bx - br*0.25, by - br*0.3, br*0.25, 0, Math.PI*2);
+        ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fill();
+      };
+      drawBerry(-r*0.35, r*0.15, r*0.55);
+      drawBerry(r*0.35, r*0.15, r*0.55);
+      drawBerry(0, -r*0.25, r*0.6);
+      // 顶部叶子
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#22c55e';
+      ctx.beginPath(); ctx.ellipse(0, -r*0.7, r*0.35, r*0.15, -0.2, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#16a34a';
+      ctx.beginPath(); ctx.ellipse(r*0.1, -r*0.75, r*0.25, r*0.1, 0.3, 0, Math.PI*2); ctx.fill();
+    } else {
+      ctx.font = (p.def.radius * 1.7) + 'px serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.shadowColor = p.isBomb ? '#ff4400' : '#fff';
+      ctx.shadowBlur = p.isBomb ? 12 : 6;
+      ctx.fillText(p.def.emoji, 0, 0);
+    }
     ctx.restore();
   });
 
