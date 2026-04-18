@@ -1,6 +1,6 @@
 /* ==========================================================
    水果吃货 - 游戏核心
-   状态管理 + 主循环 + 碰撞 + 渲染
+   状态管理 + 主循环 + 碰撞 + 主题背景/人物渲染
    依赖: config.js, audio.js, items.js, achievements.js
    ========================================================== */
 
@@ -35,13 +35,18 @@ let combo = 0, comboTimer = 0;
 let screenFlash = 0;
 let roundStartTime = 0;
 
+// ---- 主题状态 ----
+let currentTheme = THEMES[0];
+let bgParticles = [];
+let bgVariant = 0;  // 当前背景变体（每关随机）
+
 // ---- 本局统计 ----
 let stats = {};
 
 function resetRoundStats() {
   stats = {
     roundScore: 0,
-    roundFruits: { '蓝莓': 0, '草莓': 0, '葡萄': 0, '苹果': 0, '橙子': 0, '西瓜': 0 },
+    roundFruits: {},
     roundBombs: 0,
     roundTotalFruits: 0,
     maxCombo: 0,
@@ -98,6 +103,315 @@ function backToStart() {
   lvlInfo.classList.remove('active');
   itemBar.classList.remove('active');
   clearAllItemEffects();
+  if (typeof stopBGM === 'function') stopBGM();
+}
+
+// ==================== 主题系统 ====================
+
+/** 初始化主题 */
+function initTheme() {
+  const newTheme = getCurrentTheme();
+  // 检测是否换了主题
+  const themeChanged = newTheme.id !== currentTheme.id;
+  currentTheme = newTheme;
+  bgVariant = Math.floor(Math.random() * 5); // 0-4随机背景变体
+  initBgParticles();
+
+  if (themeChanged && typeof playThemeBGM === 'function') {
+    playThemeBGM(currentTheme.bgmStyle);
+  }
+}
+
+/** 初始化背景粒子 */
+function initBgParticles() {
+  bgParticles = [];
+  const count = 30;
+  for (let i = 0; i < count; i++) {
+    bgParticles.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      vx: (Math.random() - 0.5) * 20,
+      vy: 10 + Math.random() * 30,
+      size: 2 + Math.random() * 4,
+      alpha: 0.1 + Math.random() * 0.4,
+      rot: Math.random() * Math.PI * 2,
+      rotSpd: (Math.random() - 0.5) * 2,
+      phase: Math.random() * Math.PI * 2,
+    });
+  }
+}
+
+/** 绘制主题背景 */
+function drawThemeBackground() {
+  const bg = currentTheme.bg;
+  const t = performance.now() / 1000;
+
+  // 基础渐变背景
+  const grad = ctx.createRadialGradient(CX, CY, 0, CX, CY, 500);
+  grad.addColorStop(0, bg.colors[0]);
+  grad.addColorStop(0.6, bg.colors[1]);
+  grad.addColorStop(1, bg.colors[2]);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // 主题色光环
+  const hue = bg.accentHue;
+  const hGrad = ctx.createRadialGradient(CX, CY - 100, 0, CX, CY, 400);
+  hGrad.addColorStop(0, 'hsla(' + hue + ',60%,40%,0.08)');
+  hGrad.addColorStop(1, 'hsla(' + hue + ',60%,20%,0)');
+  ctx.fillStyle = hGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // 背景圆环
+  for (let r = 120; r < 400; r += 80) {
+    ctx.beginPath();
+    ctx.arc(CX, CY, r, 0, Math.PI * 2);
+    ctx.strokeStyle = bg.ringColor;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // 背景粒子
+  bgParticles.forEach(p => {
+    p.x += p.vx * 0.016;
+    p.y += p.vy * 0.016;
+    p.rot += p.rotSpd * 0.016;
+    p.phase += 0.02;
+
+    // 循环
+    if (p.y > H + 10) { p.y = -10; p.x = Math.random() * W; }
+    if (p.x < -10) p.x = W + 10;
+    if (p.x > W + 10) p.x = -10;
+
+    const alpha = p.alpha * (0.5 + 0.5 * Math.sin(p.phase));
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rot);
+
+    const pType = bg.particles;
+    if (pType === 'petal') {
+      // 花瓣
+      ctx.fillStyle = 'hsla(' + (hue + 20) + ',70%,80%,1)';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, p.size, p.size * 0.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (pType === 'sparkle') {
+      // 海面闪光
+      ctx.fillStyle = 'hsla(' + (hue + 10) + ',80%,70%,1)';
+      ctx.beginPath();
+      ctx.arc(0, 0, p.size * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (pType === 'firefly') {
+      // 萤火虫
+      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, p.size * 2);
+      g.addColorStop(0, 'hsla(' + (hue - 30) + ',80%,70%,0.8)');
+      g.addColorStop(1, 'hsla(' + (hue - 30) + ',80%,70%,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(-p.size * 2, -p.size * 2, p.size * 4, p.size * 4);
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(0, 0, p.size * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (pType === 'leaf') {
+      // 树叶
+      ctx.fillStyle = 'hsla(' + (hue + 40) + ',50%,40%,1)';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, p.size * 1.5, p.size * 0.7, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'hsla(' + (hue + 40) + ',40%,30%,0.6)';
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(-p.size * 1.2, 0);
+      ctx.lineTo(p.size * 1.2, 0);
+      ctx.stroke();
+    } else if (pType === 'spark') {
+      // 金色火花
+      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, p.size * 1.5);
+      g.addColorStop(0, 'rgba(255,215,0,0.8)');
+      g.addColorStop(1, 'rgba(255,215,0,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(-p.size * 1.5, -p.size * 1.5, p.size * 3, p.size * 3);
+      ctx.fillStyle = '#ffd700';
+      ctx.beginPath();
+      ctx.arc(0, 0, p.size * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(0, 0, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  });
+}
+
+/** 绘制主题人物 */
+function drawPlayer() {
+  const px = PLAYER.x, py = PLAYER.y, a = PLAYER.headAngle;
+  const hx = px + Math.cos(a) * PLAYER.headDist;
+  const hy = py + Math.sin(a) * PLAYER.headDist;
+  const theme = currentTheme;
+  const pc = theme.player;
+
+  ctx.save();
+
+  // 护盾视觉效果
+  if (activeEffects.shield.active) {
+    ctx.beginPath();
+    ctx.arc(px, py, PLAYER.bodyR + 14, 0, Math.PI * 2);
+    const shieldGrad = ctx.createRadialGradient(px, py, PLAYER.bodyR, px, py, PLAYER.bodyR + 14);
+    shieldGrad.addColorStop(0, 'rgba(16,185,129,0.05)');
+    shieldGrad.addColorStop(0.7, 'rgba(16,185,129,0.15)');
+    shieldGrad.addColorStop(1, 'rgba(16,185,129,0.3)');
+    ctx.fillStyle = shieldGrad;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(16,185,129,' + (0.5 + Math.sin(performance.now() / 200) * 0.3) + ')';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // 身体
+  const bodyG = ctx.createRadialGradient(px, py, 0, px, py, PLAYER.bodyR);
+  bodyG.addColorStop(0, pc.bodyColor1);
+  bodyG.addColorStop(1, pc.bodyColor2);
+  ctx.shadowColor = pc.bodyColor1;
+  ctx.shadowBlur = 20;
+  ctx.beginPath();
+  ctx.arc(px, py, PLAYER.bodyR, 0, Math.PI * 2);
+  ctx.fillStyle = bodyG;
+  ctx.fill();
+  ctx.strokeStyle = pc.accentColor + '99';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // 主题特色装饰（背部）
+  if (pc.drawExtra === 'wings') {
+    // 精灵翅膀
+    ctx.shadowBlur = 0;
+    const wingFlap = Math.sin(performance.now() / 200) * 0.3;
+    for (const s of [-1, 1]) {
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(a + Math.PI / 2 * s);
+      ctx.beginPath();
+      ctx.ellipse(0, -18, 8, 18, wingFlap * s, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(150,120,255,0.3)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(180,150,255,0.5)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // 眼睛
+  ctx.shadowBlur = 0;
+  const perp = a + Math.PI / 2;
+  for (const s of [-1, 1]) {
+    const ex = px + Math.cos(a) * 10 + Math.cos(perp) * s * 8;
+    const ey = py + Math.sin(a) * 10 + Math.sin(perp) * s * 8;
+    ctx.beginPath(); ctx.arc(ex, ey, 4, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.beginPath(); ctx.arc(ex + Math.cos(a) * 1.5, ey + Math.sin(a) * 1.5, 2, 0, Math.PI * 2);
+    ctx.fillStyle = '#111'; ctx.fill();
+  }
+
+  // 颈部
+  ctx.beginPath();
+  ctx.moveTo(px + Math.cos(a) * PLAYER.bodyR, py + Math.sin(a) * PLAYER.bodyR);
+  ctx.lineTo(hx - Math.cos(a) * PLAYER.headR, hy - Math.sin(a) * PLAYER.headR);
+  ctx.strokeStyle = pc.accentColor + '80';
+  ctx.lineWidth = 6;
+  ctx.stroke();
+
+  // 头部
+  const headG = ctx.createRadialGradient(hx, hy, 0, hx, hy, PLAYER.headR);
+  headG.addColorStop(0, pc.headColor1);
+  headG.addColorStop(1, pc.headColor2);
+  ctx.shadowColor = pc.headColor1;
+  ctx.shadowBlur = 18;
+  ctx.beginPath();
+  ctx.arc(hx, hy, PLAYER.headR, 0, Math.PI * 2);
+  ctx.fillStyle = headG;
+  ctx.fill();
+  ctx.strokeStyle = pc.accentColor + 'cc';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // 嘴巴
+  ctx.shadowBlur = 0;
+  ctx.font = '16px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('👄', hx, hy);
+
+  // 主题头部装饰
+  if (pc.drawExtra === 'leaf') {
+    // 桃叶发饰
+    ctx.fillStyle = '#88cc44';
+    ctx.beginPath();
+    ctx.ellipse(hx + 2, hy - PLAYER.headR - 3, 6, 3, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#66aa33';
+    ctx.beginPath();
+    ctx.ellipse(hx - 2, hy - PLAYER.headR - 5, 4, 2.5, 0.4, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (pc.drawExtra === 'hat') {
+    // 航海帽
+    ctx.fillStyle = '#2255aa';
+    ctx.beginPath();
+    ctx.ellipse(hx, hy - PLAYER.headR + 2, PLAYER.headR + 6, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(hx - 10, hy - PLAYER.headR - 12, 20, 15);
+    ctx.fillStyle = '#ffd700';
+    ctx.fillRect(hx - 10, hy - PLAYER.headR - 1, 20, 3);
+  } else if (pc.drawExtra === 'crown') {
+    // 菠萝叶皇冠
+    ctx.fillStyle = '#2a8a2a';
+    for (let i = -2; i <= 2; i++) {
+      ctx.beginPath();
+      const lx = hx + i * 5;
+      const ly = hy - PLAYER.headR - 4;
+      ctx.moveTo(lx, ly + 8);
+      ctx.lineTo(lx - 3, ly + 8);
+      ctx.lineTo(lx, ly - 6);
+      ctx.lineTo(lx + 3, ly + 8);
+      ctx.closePath();
+      ctx.fill();
+    }
+  } else if (pc.drawExtra === 'crown_gold') {
+    // 金色皇冠
+    ctx.fillStyle = '#ffd700';
+    ctx.shadowColor = '#ffd700';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.moveTo(hx - 14, hy - PLAYER.headR + 2);
+    ctx.lineTo(hx - 14, hy - PLAYER.headR - 8);
+    ctx.lineTo(hx - 7, hy - PLAYER.headR - 2);
+    ctx.lineTo(hx, hy - PLAYER.headR - 12);
+    ctx.lineTo(hx + 7, hy - PLAYER.headR - 2);
+    ctx.lineTo(hx + 14, hy - PLAYER.headR - 8);
+    ctx.lineTo(hx + 14, hy - PLAYER.headR + 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    // 宝石
+    ctx.fillStyle = '#ff3030';
+    ctx.beginPath();
+    ctx.arc(hx, hy - PLAYER.headR - 5, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 碰撞范围虚线
+  ctx.beginPath();
+  ctx.arc(hx, hy, PLAYER.headR + 4, 0, Math.PI * 2);
+  ctx.strokeStyle = pc.accentColor + '40';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 4]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.restore();
 }
 
 // ==================== 游戏控制 ====================
@@ -115,21 +429,39 @@ function beginRound() {
   roundStartTime = performance.now();
   resetRoundStats();
 
+  // 初始化主题
+  initTheme();
+
   // 每关开始清空道具栏，清除所有效果
   resetItemBag();
   clearAllItemEffects();
 
+  // 初始化水果统计
+  const fruitPool = getCurrentFruitPool();
+  fruitPool.forEach(f => { stats.roundFruits[f.name] = 0; });
+
   const lvl = LEVELS[level];
+  const theme = currentTheme;
+
   document.getElementById('levelVal').textContent = level + 1;
   document.getElementById('targetVal').textContent = lvl.target;
   document.getElementById('levelName').textContent = level + 1;
-  document.getElementById('levelDesc').textContent = lvl.name;
+  document.getElementById('levelDesc').textContent = theme.emoji + ' ' + lvl.name;
   document.getElementById('scoreVal').textContent = score;
   document.getElementById('timerVal').textContent = timeLeft;
   document.getElementById('timerVal').classList.remove('warning');
+
+  // 更新主题色到HUD
+  document.getElementById('levelInfo').style.borderColor = theme.player.accentColor + '40';
+
   hudEl.classList.add('active');
   lvlInfo.classList.add('active');
   itemBar.classList.add('active');
+
+  // 主题过渡提示
+  if (isThemeStart(level)) {
+    addFloatingText(CX, CY - 100, theme.emoji + ' ' + theme.name, theme.player.accentColor);
+  }
 
   if (countdownTimer) clearInterval(countdownTimer);
   countdownTimer = setInterval(() => {
@@ -164,19 +496,28 @@ function endRound() {
       setTimeout(playWinSound, 600);
       document.getElementById('clearMsg').textContent = '全关通关！总得分：' + score;
       document.getElementById('clearDetail').textContent =
-        '你已通过全部 ' + LEVELS.length + ' 关，你是真正的水果猎手！';
+        '你已通过全部 ' + LEVELS.length + ' 关，征服了所有五大主题！你是真正的水果之王！';
       showOverlay('clear');
     } else {
       playWinSound();
+
+      // 检测下一关是否新主题
+      const nextTheme = THEMES.find(t => level + 1 >= t.startLevel && level + 1 <= t.endLevel);
+      let extraMsg = '';
+      if (nextTheme && nextTheme.id !== currentTheme.id) {
+        extraMsg = '\n即将进入新主题：' + nextTheme.emoji + ' ' + nextTheme.name + '！';
+      }
+
       document.getElementById('winMsg').textContent = '第 ' + (level + 1) + ' 关完成！得分 ' + score;
       document.getElementById('winDetail').textContent =
-        '目标：' + lvl.target + '  达成：' + score + '  超额：' + (score - lvl.target) + ' 分';
+        currentTheme.emoji + ' ' + lvl.name + ' — 目标：' + lvl.target + '  达成：' + score + '  超额：' + (score - lvl.target) + ' 分' + extraMsg;
       showOverlay('win');
     }
   } else {
     playLoseSound();
     document.getElementById('loseMsg').textContent = '第 ' + (level + 1) + ' 关失败，差 ' + (lvl.target - score) + ' 分';
-    document.getElementById('loseDetail').textContent = '目标：' + lvl.target + '  你的得分：' + score;
+    document.getElementById('loseDetail').textContent =
+      currentTheme.emoji + ' ' + lvl.name + ' — 目标：' + lvl.target + '  你的得分：' + score;
     showOverlay('lose');
   }
 
@@ -186,6 +527,7 @@ function endRound() {
 // ==================== 生成 ====================
 function spawnProjectile() {
   const lvl = LEVELS[level];
+  const fruitPool = getCurrentFruitPool();
   const side = Math.floor(Math.random() * 4);
   const m = 50;
   let sx, sy;
@@ -195,7 +537,7 @@ function spawnProjectile() {
   else { sx = -m; sy = Math.random() * H; }
 
   const isBomb = Math.random() < lvl.bombChance;
-  const def = isBomb ? BOMB : FRUITS[Math.floor(Math.random() * FRUITS.length)];
+  const def = isBomb ? BOMB : fruitPool[Math.floor(Math.random() * fruitPool.length)];
 
   const dx = CX - sx + (Math.random() - 0.5) * 160;
   const dy = CY - sy + (Math.random() - 0.5) * 160;
@@ -227,7 +569,7 @@ function spawnParticles(x, y, color, count, big) {
 }
 
 function addFloatingText(x, y, text, color) {
-  floatingTexts.push({ x, y, text, color, alpha: 1, vy: -60, life: 1.2 });
+  floatingTexts.push({ x, y, text, color, alpha: 1, vy: -60, life: 1.5 });
 }
 
 // ==================== 碰撞 ====================
@@ -364,13 +706,13 @@ function mainLoop(ts) {
           if (activeEffects.double.active) pts *= 2;
           score += pts;
           stats.roundScore = score;
-          stats.roundFruits[p.def.name]++;
+          stats.roundFruits[p.def.name] = (stats.roundFruits[p.def.name] || 0) + 1;
           stats.roundTotalFruits++;
           document.getElementById('scoreVal').textContent = score;
           playEatSound(p.def, combo >= 3);
           spawnParticles(h.x, h.y, pts >= 12 ? '#ffd700' : '#fff', 16, false);
           const lbl = combo >= 3 ? ('+' + pts + ' x' + combo + '连击！') : ('+' + pts);
-          addFloatingText(h.x - 20, h.y - 20, lbl, combo >= 3 ? '#ffd700' : '#a8e063');
+          addFloatingText(h.x - 20, h.y - 20, lbl, combo >= 3 ? '#ffd700' : currentTheme.player.accentColor);
 
           if (activeEffects.double.active) {
             addFloatingText(h.x - 10, h.y - 45, '✖️ DOUBLE', '#ef4444');
@@ -444,7 +786,7 @@ function mainLoop(ts) {
     // 浮动文字
     floatingTexts.forEach(ft => {
       ft.y += ft.vy * dt; ft.life -= dt;
-      ft.alpha = Math.max(0, ft.life / 1.2);
+      ft.alpha = Math.max(0, ft.life / 1.5);
     });
     floatingTexts = floatingTexts.filter(ft => ft.life > 0);
   }
@@ -455,11 +797,8 @@ function mainLoop(ts) {
 
 // ==================== 渲染 ====================
 function render() {
-  // 背景渐变
-  const bg = ctx.createRadialGradient(CX, CY, 0, CX, CY, 500);
-  bg.addColorStop(0, '#12122a'); bg.addColorStop(1, '#050510');
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, W, H);
+  // 主题背景
+  drawThemeBackground();
 
   // 冻结效果滤镜
   if (activeEffects.freeze.active) {
@@ -497,15 +836,6 @@ function render() {
     ctx.fillRect(0, 0, W, H);
   }
 
-  // 背景圆环
-  for (let r = 120; r < 400; r += 80) {
-    ctx.beginPath();
-    ctx.arc(CX, CY, r, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(100,150,255,0.04)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-  }
-
   // 投射物
   projectiles.forEach(p => {
     ctx.save();
@@ -532,31 +862,13 @@ function render() {
       ctx.shadowBlur = 10;
     }
 
-    if (p.def.name === '蓝莓') {
-      const r = p.def.radius;
-      ctx.shadowColor = '#6366f1'; ctx.shadowBlur = 8;
-      const drawBerry = (bx, by, br) => {
-        const g = ctx.createRadialGradient(bx - br * 0.2, by - br * 0.3, 0, bx, by, br);
-        g.addColorStop(0, '#818cf8'); g.addColorStop(0.6, '#4f46e5'); g.addColorStop(1, '#312e81');
-        ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.fillStyle = g; ctx.fill();
-        ctx.beginPath(); ctx.arc(bx - br * 0.25, by - br * 0.3, br * 0.25, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fill();
-      };
-      drawBerry(-r * 0.35, r * 0.15, r * 0.55);
-      drawBerry(r * 0.35, r * 0.15, r * 0.55);
-      drawBerry(0, -r * 0.25, r * 0.6);
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = '#22c55e';
-      ctx.beginPath(); ctx.ellipse(0, -r * 0.7, r * 0.35, r * 0.15, -0.2, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#16a34a';
-      ctx.beginPath(); ctx.ellipse(r * 0.1, -r * 0.75, r * 0.25, r * 0.1, 0.3, 0, Math.PI * 2); ctx.fill();
-    } else {
-      ctx.font = (p.def.radius * 1.7) + 'px serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.shadowColor = p.isBomb ? '#ff4400' : '#fff';
-      ctx.shadowBlur = p.isBomb ? 12 : 6;
-      ctx.fillText(p.def.emoji, 0, 0);
-    }
+    // 绘制水果
+    ctx.font = (p.def.radius * 1.7) + 'px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = p.isBomb ? '#ff4400' : currentTheme.player.accentColor;
+    ctx.shadowBlur = p.isBomb ? 12 : 6;
+    ctx.fillText(p.def.emoji, 0, 0);
 
     // 冰冻冰晶覆盖
     if (activeEffects.freeze.active && !p.eaten) {
@@ -638,6 +950,7 @@ function render() {
     ctx.fillStyle = ft.color;
     ctx.shadowColor = ft.color;
     ctx.shadowBlur = 8;
+    ctx.textAlign = 'center';
     ctx.fillText(ft.text, ft.x, ft.y);
     ctx.restore();
   });
@@ -717,6 +1030,16 @@ function render() {
     ctx.restore();
   }
 
+  // 主题标签（左下角）
+  if (state === 'playing') {
+    ctx.save();
+    ctx.font = '12px "Segoe UI"';
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.textAlign = 'left';
+    ctx.fillText(currentTheme.emoji + ' ' + currentTheme.name + '  |  ' + (level + 1) + '/50', 14, H - 14);
+    ctx.restore();
+  }
+
   // 准星
   if (state === 'playing') {
     ctx.save();
@@ -736,74 +1059,6 @@ function render() {
   if (state === 'start') {
     PLAYER.headAngle = Math.atan2(mouseY - PLAYER.y, mouseX - PLAYER.x);
   }
-}
-
-function drawPlayer() {
-  const px = PLAYER.x, py = PLAYER.y, a = PLAYER.headAngle;
-  const hx = px + Math.cos(a) * PLAYER.headDist;
-  const hy = py + Math.sin(a) * PLAYER.headDist;
-
-  ctx.save();
-
-  // 护盾视觉效果
-  if (activeEffects.shield.active) {
-    ctx.beginPath();
-    ctx.arc(px, py, PLAYER.bodyR + 14, 0, Math.PI * 2);
-    const shieldGrad = ctx.createRadialGradient(px, py, PLAYER.bodyR, px, py, PLAYER.bodyR + 14);
-    shieldGrad.addColorStop(0, 'rgba(16,185,129,0.05)');
-    shieldGrad.addColorStop(0.7, 'rgba(16,185,129,0.15)');
-    shieldGrad.addColorStop(1, 'rgba(16,185,129,0.3)');
-    ctx.fillStyle = shieldGrad;
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(16,185,129,' + (0.5 + Math.sin(performance.now() / 200) * 0.3) + ')';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  }
-
-  // 身体
-  const bodyG = ctx.createRadialGradient(px, py, 0, px, py, PLAYER.bodyR);
-  bodyG.addColorStop(0, '#6c9fff'); bodyG.addColorStop(1, '#3060cc');
-  ctx.shadowColor = '#4080ff'; ctx.shadowBlur = 20;
-  ctx.beginPath(); ctx.arc(px, py, PLAYER.bodyR, 0, Math.PI * 2);
-  ctx.fillStyle = bodyG; ctx.fill();
-  ctx.strokeStyle = 'rgba(150,200,255,0.6)'; ctx.lineWidth = 2; ctx.stroke();
-
-  // 眼睛
-  ctx.shadowBlur = 0;
-  const perp = a + Math.PI / 2;
-  for (const s of [-1, 1]) {
-    const ex = px + Math.cos(a) * 10 + Math.cos(perp) * s * 8;
-    const ey = py + Math.sin(a) * 10 + Math.sin(perp) * s * 8;
-    ctx.beginPath(); ctx.arc(ex, ey, 4, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
-    ctx.beginPath(); ctx.arc(ex + Math.cos(a) * 1.5, ey + Math.sin(a) * 1.5, 2, 0, Math.PI * 2);
-    ctx.fillStyle = '#111'; ctx.fill();
-  }
-
-  // 颈部
-  ctx.beginPath();
-  ctx.moveTo(px + Math.cos(a) * PLAYER.bodyR, py + Math.sin(a) * PLAYER.bodyR);
-  ctx.lineTo(hx - Math.cos(a) * PLAYER.headR, hy - Math.sin(a) * PLAYER.headR);
-  ctx.strokeStyle = 'rgba(150,200,255,0.5)'; ctx.lineWidth = 6; ctx.stroke();
-
-  // 头部
-  const headG = ctx.createRadialGradient(hx, hy, 0, hx, hy, PLAYER.headR);
-  headG.addColorStop(0, '#ffe066'); headG.addColorStop(1, '#e07000');
-  ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 18;
-  ctx.beginPath(); ctx.arc(hx, hy, PLAYER.headR, 0, Math.PI * 2);
-  ctx.fillStyle = headG; ctx.fill();
-  ctx.strokeStyle = 'rgba(255,230,100,0.8)'; ctx.lineWidth = 2.5; ctx.stroke();
-
-  // 嘴巴
-  ctx.shadowBlur = 0;
-  ctx.font = '16px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('👄', hx, hy);
-
-  // 碰撞范围虚线
-  ctx.beginPath(); ctx.arc(hx, hy, PLAYER.headR + 4, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(255,220,0,0.25)'; ctx.lineWidth = 2;
-  ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
-
-  ctx.restore();
 }
 
 // ==================== 初始化 & 启动 ====================

@@ -36,14 +36,14 @@
     </div>
     <div class="hud-panel">
       <div class="hud-label">目标</div>
-      <div class="hud-value" id="targetVal" style="color:#a8e063">100</div>
+      <div class="hud-value" id="targetVal" style="color:#a8e063">66</div>
     </div>
     <div class="hud-panel">
       <div class="hud-label">剩余</div>
       <div class="hud-value" id="timerVal">45</div>
     </div>
   </div>
-  <div id="levelInfo">第 <b id="levelName">1</b> 关 — <b id="levelDesc">热身关</b></div>
+  <div id="levelInfo">第 <b id="levelName">1</b> 关 — <b id="levelDesc">桃源初见</b></div>
 
   <!-- 开始界面 -->
   <div class="overlay" id="startScreen">
@@ -53,23 +53,38 @@
        越<b style="color:#a8e063">轻</b>的水果分数越高，但飞行越快！每关<b style="color:#fff">45秒</b>，达到目标分数过关。<br>
        <b style="color:#ff6b6b">小心炸弹💣</b>！碰到会扣15分并产生爆炸！<br>
        <b style="color:#ffd700">道具🎁</b>会随机掉落，碰到收集后按 <b style="color:#fff">数字键 1-6</b> 释放对应道具！</p>
-    <div class="fruit-legend">
-      <div class="fruit-item"><span>🍉</span><span>西瓜 +1分（最重·最慢）</span></div>
-      <div class="fruit-item"><span>🍊</span><span>橙子 +3分</span></div>
-      <div class="fruit-item"><span>🍎</span><span>苹果 +5分</span></div>
-      <div class="fruit-item"><span>🍇</span><span>葡萄 +8分</span></div>
-      <div class="fruit-item"><span>🍓</span><span>草莓 +12分</span></div>
-      <div class="fruit-item"><span>🫐</span><span>蓝莓 +20分（最轻·最快）</span></div>
-      <div class="fruit-item"><span>💣</span><span style="color:#ff6b6b">炸弹 -15分</span></div>
+
+    <!-- 五大主题展示 -->
+    <div class="theme-showcase">
+      <div class="theme-card">
+        <div class="theme-emoji">🍑</div>
+        <div class="theme-name">核果园</div>
+        <div class="theme-range">1-10关</div>
+      </div>
+      <div class="theme-card">
+        <div class="theme-emoji">🍊</div>
+        <div class="theme-name">柑橘岛</div>
+        <div class="theme-range">11-20关</div>
+      </div>
+      <div class="theme-card">
+        <div class="theme-emoji">🫐</div>
+        <div class="theme-name">浆果谷</div>
+        <div class="theme-range">21-30关</div>
+      </div>
+      <div class="theme-card">
+        <div class="theme-emoji">🥭</div>
+        <div class="theme-name">热带雨林</div>
+        <div class="theme-range">31-40关</div>
+      </div>
+      <div class="theme-card">
+        <div class="theme-emoji">🍎</div>
+        <div class="theme-name">仁果殿</div>
+        <div class="theme-range">41-50关</div>
+      </div>
     </div>
-    <div class="fruit-legend" style="margin-top:8px">
-      <div class="fruit-item"><span>🧲</span><span>磁铁-吸附水果</span></div>
-      <div class="fruit-item"><span>⏱️</span><span>时间减缓</span></div>
-      <div class="fruit-item"><span>🛡️</span><span>护盾</span></div>
-      <div class="fruit-item"><span>✖️</span><span>双倍得分</span></div>
-      <div class="fruit-item"><span>💥</span><span>炸弹清除</span></div>
-      <div class="fruit-item"><span>❄️</span><span>冰冻全场</span></div>
-    </div>
+
+    <p style="font-size:13px;color:#888;margin-top:4px">共50关 · 5大主题 · 每个主题拥有独特人物、背景、音乐和水果</p>
+
     <button class="btn btn-primary" id="btnStart">开始游戏</button>
   </div>
 

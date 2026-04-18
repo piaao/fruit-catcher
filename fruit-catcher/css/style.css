@@ -271,3 +271,39 @@ canvas {
   white-space: nowrap;
 }
 #itemUseHint.show { opacity: 1; }
+
+/* ---- 主题展示卡片 ---- */
+.theme-showcase {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 4px;
+}
+.theme-card {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 8px 14px;
+  text-align: center;
+  min-width: 90px;
+  transition: transform 0.2s, border-color 0.2s;
+}
+.theme-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255,255,255,0.25);
+}
+.theme-emoji {
+  font-size: 28px;
+  line-height: 1;
+}
+.theme-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ddd;
+  margin-top: 4px;
+}
+.theme-range {
+  font-size: 10px;
+  color: #888;
+  margin-top: 2px;
+}

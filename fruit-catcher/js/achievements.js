@@ -4,26 +4,20 @@
    ========================================================== */
 
 const ACHIEVEMENTS = [
+  // ---- 通用成就 ----
   { id: 'first_win',     name: '初出茅庐',     desc: '完成第一关',                  icon: '🌟', check: (s) => s.maxLevelCleared >= 1 },
-  { id: 'clear_all',     name: '水果之王',     desc: '通过全部5关',                icon: '👑', check: (s) => s.maxLevelCleared >= 5 },
+  { id: 'clear_all',     name: '水果之王',     desc: '通过全部50关',               icon: '👑', check: (s) => s.maxLevelCleared >= 50 },
   { id: 'score_200',     name: '闪亮登场',     desc: '一局得分达到200分',          icon: '💫', check: (s) => s.roundScore >= 200 },
   { id: 'score_500',     name: '分数猎人',     desc: '一局得分达到500分',          icon: '🎯', check: (s) => s.roundScore >= 500 },
-  { id: 'apple_10',      name: '苹果爱好者',   desc: '一局吃了10个苹果',           icon: '🍎', check: (s) => s.roundFruits['苹果'] >= 10 },
-  { id: 'apple_30',      name: '苹果狂魔',     desc: '一局吃了30个苹果',           icon: '🍎', check: (s) => s.roundFruits['苹果'] >= 30 },
-  { id: 'blueberry_10',  name: '蓝莓收藏家',   desc: '一局吃了10个蓝莓',           icon: '💜', check: (s) => s.roundFruits['蓝莓'] >= 10 },
-  { id: 'bomb_5',        name: '炸弹磁铁',     desc: '一局吃了5个炸弹',            icon: '💣', check: (s) => s.roundBombs >= 5 },
-  { id: 'bomb_10',       name: '自毁专家',     desc: '一局吃了10个炸弹',           icon: '🤯', check: (s) => s.roundBombs >= 10 },
   { id: 'combo_5',       name: '连击新星',     desc: '达成5连击',                  icon: '⚡', check: (s) => s.maxCombo >= 5 },
   { id: 'combo_10',      name: '连击大师',     desc: '达成10连击',                 icon: '🔥', check: (s) => s.maxCombo >= 10 },
   { id: 'combo_20',      name: '连击之王',     desc: '达成20连击',                 icon: '💥', check: (s) => s.maxCombo >= 20 },
   { id: 'fruit_30',      name: '大胃王',       desc: '一局吃掉30个水果',           icon: '😋', check: (s) => s.roundTotalFruits >= 30 },
   { id: 'fruit_60',      name: '超级大胃王',   desc: '一局吃掉60个水果',           icon: '🤤', check: (s) => s.roundTotalFruits >= 60 },
-  { id: 'watermelon_20', name: '西瓜吞噬者',   desc: '一局吃了20个西瓜',           icon: '🍉', check: (s) => s.roundFruits['西瓜'] >= 20 },
-  { id: 'grape_15',      name: '葡萄品鉴师',   desc: '一局吃了15个葡萄',           icon: '🍇', check: (s) => s.roundFruits['葡萄'] >= 15 },
-  { id: 'strawberry_12', name: '草莓甜心',     desc: '一局吃了12个草莓',           icon: '🍓', check: (s) => s.roundFruits['草莓'] >= 12 },
-  { id: 'orange_15',     name: '橙意满满',     desc: '一局吃了15个橙子',           icon: '🍊', check: (s) => s.roundFruits['橙子'] >= 15 },
   { id: 'no_bomb_win',   name: '完美回避',     desc: '不碰任何炸弹通过一关',       icon: '🛡️', check: (s) => s.noBombWin },
   { id: 'speed_clear',   name: '极速通关',     desc: '在30秒内通过任意一关',       icon: '⏱️', check: (s) => s.speedClear },
+  { id: 'bomb_5',        name: '炸弹磁铁',     desc: '一局吃了5个炸弹',            icon: '💣', check: (s) => s.roundBombs >= 5 },
+  { id: 'bomb_10',       name: '自毁专家',     desc: '一局吃了10个炸弹',           icon: '🤯', check: (s) => s.roundBombs >= 10 },
   { id: 'item_first',    name: '初次尝试',     desc: '第一次使用道具',             icon: '🎁', check: (s) => (s.itemsUsed || 0) >= 1 },
   { id: 'item_hoarder',  name: '道具收藏家',   desc: '同时持有3种不同道具',         icon: '🎒', check: () => {
     let types = 0;
@@ -32,6 +26,19 @@ const ACHIEVEMENTS = [
   }},
   { id: 'item_spam',     name: '疯狂使用',     desc: '一局使用10次道具',            icon: '🧪', check: (s) => (s.itemsUsed || 0) >= 10 },
   { id: 'shield_save',   name: '完美防御',     desc: '用护盾挡住炸弹伤害',          icon: '🔰', check: (s) => s.shieldBlocked },
+
+  // ---- 水果专属成就（通用名+动态检测）----
+  { id: 'fruit_master',  name: '水果大师',     desc: '一局吃掉15个任意水果',       icon: '🏆', check: (s) => {
+    return Object.values(s.roundFruits).some(v => v >= 15);
+  }},
+
+  // ---- 主题成就 ----
+  { id: 'theme_stone',   name: '核果入门',     desc: '通关核果园（第10关）',       icon: '🍑', check: (s) => s.maxLevelCleared >= 10 },
+  { id: 'theme_citrus',  name: '柑橘冒险',     desc: '通关柑橘岛（第20关）',       icon: '🍊', check: (s) => s.maxLevelCleared >= 20 },
+  { id: 'theme_berry',   name: '浆果猎人',     desc: '通关浆果谷（第30关）',       icon: '🫐', check: (s) => s.maxLevelCleared >= 30 },
+  { id: 'theme_tropical',name: '热带勇士',     desc: '通关热带雨林（第40关）',      icon: '🥭', check: (s) => s.maxLevelCleared >= 40 },
+  { id: 'theme_pome',    name: '果皇加冕',     desc: '通关仁果殿（第50关）',        icon: '👑', check: (s) => s.maxLevelCleared >= 50 },
+  { id: 'theme_all',     name: '全果谱收集者', desc: '通关全部5个主题',             icon: '🏆', check: (s) => s.maxLevelCleared >= 50 },
 ];
 
 // ---- 成就状态 ----
