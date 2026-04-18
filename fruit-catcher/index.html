@@ -129,11 +129,63 @@
     60%  { transform: translate(-3px,2px) rotate(0); }
     100% { transform: translate(0,0) rotate(0); }
   }
+  /* 成就提示条 */
+  #achievementToast {
+    position: absolute;
+    top: 110px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    background: linear-gradient(135deg, rgba(255,180,0,0.95), rgba(255,120,0,0.95));
+    border: 2px solid rgba(255,255,255,0.4);
+    border-radius: 14px;
+    padding: 12px 28px;
+    z-index: 30;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.4s, transform 0.4s;
+    text-align: center;
+    min-width: 320px;
+    box-shadow: 0 4px 30px rgba(255,160,0,0.5);
+  }
+  #achievementToast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  #achievementToast .ach-icon {
+    font-size: 28px;
+    display: block;
+    margin-bottom: 2px;
+  }
+  #achievementToast .ach-title {
+    font-size: 11px;
+    color: rgba(255,255,255,0.7);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  #achievementToast .ach-name {
+    font-size: 20px;
+    font-weight: 800;
+    color: #fff;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  }
+  #achievementToast .ach-desc {
+    font-size: 12px;
+    color: rgba(255,255,255,0.85);
+    margin-top: 2px;
+  }
 </style>
 </head>
 <body>
 <div id="gameWrapper">
   <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+  <!-- 成就提示 -->
+  <div id="achievementToast">
+    <span class="ach-icon">🏅</span>
+    <div class="ach-title">成就解锁</div>
+    <div class="ach-name" id="achName"></div>
+    <div class="ach-desc" id="achDesc"></div>
+  </div>
 
   <div id="hud">
     <div class="hud-panel">
@@ -205,7 +257,7 @@
 
 <script>
 /* ==========================================================
-   水果吃货 - 完整重写版
+   水果吃货 - 成就系统版
    ========================================================== */
 
 // ==================== 常量 ====================
@@ -234,7 +286,102 @@ const LEVELS = [
   { name:'极限关', target:500,  baseSpeed:220, spawnInterval: 650, bombChance:0.18 },
 ];
 
-const ROUND_TIME = 45; // 每关秒数
+const ROUND_TIME = 45;
+
+// ==================== 成就系统 ====================
+const ACHIEVEMENTS = [
+  { id:'first_win',   name:'初出茅庐',   desc:'完成第一关',                  icon:'🌟', check: (s) => s.maxLevelCleared >= 1 },
+  { id:'clear_all',   name:'水果之王',   desc:'通过全部5关',                icon:'👑', check: (s) => s.maxLevelCleared >= 5 },
+  { id:'score_200',   name:'闪亮登场',   desc:'一局得分达到200分',          icon:'💫', check: (s) => s.roundScore >= 200 },
+  { id:'score_500',   name:'分数猎人',   desc:'一局得分达到500分',          icon:'🎯', check: (s) => s.roundScore >= 500 },
+  { id:'apple_10',    name:'苹果爱好者', desc:'一局吃了10个苹果',           icon:'🍎', check: (s) => s.roundFruits['苹果'] >= 10 },
+  { id:'apple_30',    name:'苹果狂魔',   desc:'一局吃了30个苹果',           icon:'🍎', check: (s) => s.roundFruits['苹果'] >= 30 },
+  { id:'blueberry_10',name:'蓝莓收藏家', desc:'一局吃了10个蓝莓',           icon:'💜', check: (s) => s.roundFruits['蓝莓'] >= 10 },
+  { id:'bomb_5',      name:'炸弹磁铁',   desc:'一局吃了5个炸弹',            icon:'💣', check: (s) => s.roundBombs >= 5 },
+  { id:'bomb_10',     name:'自毁专家',   desc:'一局吃了10个炸弹',           icon:'🤯', check: (s) => s.roundBombs >= 10 },
+  { id:'combo_5',     name:'连击新星',   desc:'达成5连击',                  icon:'⚡', check: (s) => s.maxCombo >= 5 },
+  { id:'combo_10',    name:'连击大师',   desc:'达成10连击',                 icon:'🔥', check: (s) => s.maxCombo >= 10 },
+  { id:'combo_20',    name:'连击之王',   desc:'达成20连击',                 icon:'💥', check: (s) => s.maxCombo >= 20 },
+  { id:'fruit_30',    name:'大胃王',     desc:'一局吃掉30个水果',           icon:'😋', check: (s) => s.roundTotalFruits >= 30 },
+  { id:'fruit_60',    name:'超级大胃王', desc:'一局吃掉60个水果',           icon:'🤤', check: (s) => s.roundTotalFruits >= 60 },
+  { id:'watermelon_20',name:'西瓜吞噬者',desc:'一局吃了20个西瓜',           icon:'🍉', check: (s) => s.roundFruits['西瓜'] >= 20 },
+  { id:'grape_15',    name:'葡萄品鉴师', desc:'一局吃了15个葡萄',           icon:'🍇', check: (s) => s.roundFruits['葡萄'] >= 15 },
+  { id:'strawberry_12',name:'草莓甜心',  desc:'一局吃了12个草莓',           icon:'🍓', check: (s) => s.roundFruits['草莓'] >= 12 },
+  { id:'orange_15',   name:'橙意满满',   desc:'一局吃了15个橙子',           icon:'🍊', check: (s) => s.roundFruits['橙子'] >= 15 },
+  { id:'no_bomb_win', name:'完美回避',   desc:'不碰任何炸弹通过一关',       icon:'🛡️', check: (s) => s.noBombWin },
+  { id:'speed_clear', name:'极速通关',   desc:'在30秒内通过任意一关',       icon:'⏱️', check: (s) => s.speedClear },
+];
+
+// 成就状态
+let unlockedAch = new Set();
+let achQueue = [];       // 等待展示的成就队列
+let achShowing = false;  // 是否正在展示
+let achTimer = null;
+
+// 本局统计
+let stats = {};
+
+function resetRoundStats() {
+  stats = {
+    roundScore: 0,
+    roundFruits: { '蓝莓':0, '草莓':0, '葡萄':0, '苹果':0, '橙子':0, '西瓜':0 },
+    roundBombs: 0,
+    roundTotalFruits: 0,
+    maxCombo: 0,
+    maxLevelCleared: 0,
+    noBombWin: false,
+    speedClear: false,
+  };
+}
+resetRoundStats();
+
+function checkAchievements() {
+  for (const ach of ACHIEVEMENTS) {
+    if (!unlockedAch.has(ach.id) && ach.check(stats)) {
+      unlockedAch.add(ach.id);
+      achQueue.push(ach);
+      if (!achShowing) showNextAch();
+    }
+  }
+}
+
+const achToast = document.getElementById('achievementToast');
+const achNameEl = document.getElementById('achName');
+const achDescEl = document.getElementById('achDesc');
+
+function showNextAch() {
+  if (achQueue.length === 0) { achShowing = false; return; }
+  achShowing = true;
+  const ach = achQueue.shift();
+  achToast.querySelector('.ach-icon').textContent = ach.icon;
+  achNameEl.textContent = ach.name;
+  achDescEl.textContent = ach.desc;
+  achToast.classList.add('show');
+  playAchievementSound();
+  clearTimeout(achTimer);
+  achTimer = setTimeout(() => {
+    achToast.classList.remove('show');
+    setTimeout(() => showNextAch(), 400);
+  }, 2500);
+}
+
+/** 成就解锁音效：上行琶音 + 闪光 */
+function playAchievementSound() {
+  ensureAudio();
+  const ac = audioCtx;
+  const notes = [659, 784, 988, 1319];
+  notes.forEach((freq, i) => {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.type = 'sine';
+    const t = ac.currentTime + i * 0.08;
+    o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.25, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    o.start(t); o.stop(t + 0.35);
+  });
+}
 
 // ==================== DOM ====================
 const canvas  = document.getElementById('gameCanvas');
@@ -391,7 +538,6 @@ function playEatSound(fruitDef, isCombo) {
 function playBombSound() {
   ensureAudio();
   const ac = audioCtx, now = ac.currentTime;
-  // 低频轰鸣
   const o = ac.createOscillator(), g = ac.createGain();
   o.connect(g); g.connect(ac.destination);
   o.type='sawtooth';
@@ -400,7 +546,6 @@ function playBombSound() {
   g.gain.setValueAtTime(0.5,now);
   g.gain.exponentialRampToValueAtTime(0.001,now+0.4);
   o.start(now); o.stop(now+0.45);
-  // 噪声爆裂
   const ns = ac.createBufferSource();
   ns.buffer = createNoiseBuffer(0.3);
   const f = ac.createBiquadFilter(), g2 = ac.createGain();
@@ -444,11 +589,9 @@ function playLoseSound() {
   });
 }
 
-/** 倒计时紧迫音效：最后5秒音调逐秒升高，最后3秒更急促 */
 function playTickSound(secondsLeft) {
   ensureAudio();
   const ac = audioCtx, now = ac.currentTime;
-  // 越接近0音调越高：10s→440Hz, 1s→1200Hz
   const freq = 440 + (10 - secondsLeft) * 84;
   const o = ac.createOscillator(), g = ac.createGain();
   o.connect(g); g.connect(ac.destination);
@@ -458,8 +601,6 @@ function playTickSound(secondsLeft) {
   g.gain.linearRampToValueAtTime(secondsLeft <= 3 ? 0.35 : 0.2, now + 0.01);
   g.gain.exponentialRampToValueAtTime(0.001, now + (secondsLeft <= 3 ? 0.15 : 0.1));
   o.start(now); o.stop(now + 0.2);
-
-  // 最后3秒额外叠加低频心跳
   if (secondsLeft <= 3) {
     const o2 = ac.createOscillator(), g2 = ac.createGain();
     o2.connect(g2); g2.connect(ac.destination);
@@ -473,15 +614,16 @@ function playTickSound(secondsLeft) {
 }
 
 // ==================== 游戏状态 ====================
-let state = 'start'; // start | playing | win | lose | clear
+let state = 'start';
 let level = 0, score = 0, timeLeft = ROUND_TIME;
 let mouseX = CX, mouseY = CY - 60;
-let projectiles = []; // 水果+炸弹
+let projectiles = [];
 let particles = [];
 let floatingTexts = [];
 let spawnTimer = 0, countdownTimer = null;
 let combo = 0, comboTimer = 0;
-let screenFlash = 0; // 炸弹红色闪烁
+let screenFlash = 0;
+let roundStartTime = 0; // 记录本关开始时间（用于极速通关）
 
 const PLAYER = {
   x: CX, y: CY,
@@ -496,10 +638,11 @@ canvas.addEventListener('mousemove', e => {
   mouseY = (e.clientY - r.top) * (H / r.height);
 });
 
-// ==================== 事件绑定（用 addEventListener 代替 onclick） ====================
+// ==================== 事件绑定 ====================
 document.getElementById('btnStart').addEventListener('click', () => {
   ensureAudio();
   level = 0;
+  stats.maxLevelCleared = 0; // 新游戏重置最高通关记录
   hideAllOverlays();
   beginRound();
 });
@@ -519,11 +662,9 @@ document.getElementById('btnRestart3').addEventListener('click', backToStart);
 function hideAllOverlays() {
   Object.values(overlays).forEach(el => el.classList.add('hidden'));
 }
-
 function showOverlay(key) {
   overlays[key].classList.remove('hidden');
 }
-
 function backToStart() {
   hideAllOverlays();
   showOverlay('start');
@@ -536,13 +677,15 @@ function backToStart() {
 // ==================== 游戏控制 ====================
 function beginRound() {
   state = 'playing';
-  score = 0; // 每关重新计算分数
+  score = 0;
   projectiles = [];
   particles = [];
   floatingTexts = [];
   spawnTimer = 0;
   timeLeft = ROUND_TIME;
   combo = 0; comboTimer = 0;
+  roundStartTime = performance.now();
+  resetRoundStats();
 
   const lvl = LEVELS[level];
   document.getElementById('levelVal').textContent = level + 1;
@@ -562,7 +705,7 @@ function beginRound() {
     document.getElementById('timerVal').textContent = Math.max(0, timeLeft);
     if (timeLeft <= 10) {
       document.getElementById('timerVal').classList.add('warning');
-      playTickSound(timeLeft); // 倒计时紧迫音效
+      playTickSound(timeLeft);
     }
     if (timeLeft <= 0) {
       clearInterval(countdownTimer);
@@ -574,7 +717,15 @@ function beginRound() {
 function endRound() {
   state = 'ended';
   const lvl = LEVELS[level];
+  const elapsed = (performance.now() - roundStartTime) / 1000; // 本关用时（秒）
+
   if (score >= lvl.target) {
+    // 过关——更新统计
+    if (level + 1 > stats.maxLevelCleared) stats.maxLevelCleared = level + 1;
+    if (stats.roundBombs === 0) stats.noBombWin = true;
+    if (elapsed <= 30) stats.speedClear = true;
+
+    // 通关判定
     if (level >= LEVELS.length - 1) {
       playWinSound();
       setTimeout(playWinSound, 600);
@@ -595,6 +746,9 @@ function endRound() {
     document.getElementById('loseDetail').textContent = '目标：' + lvl.target + '  你的得分：' + score;
     showOverlay('lose');
   }
+
+  // 过关/失败都检查一次成就
+  checkAchievements();
 }
 
 // ==================== 生成 ====================
@@ -651,7 +805,6 @@ function headPos() {
     y: PLAYER.y + Math.sin(PLAYER.headAngle) * PLAYER.headDist,
   };
 }
-
 function hitTest(p) {
   const h = headPos();
   return dist(p.x, p.y, h.x, h.y) < (p.def.radius + PLAYER.headR - 4);
@@ -665,7 +818,6 @@ function mainLoop(ts) {
   const dt = Math.min((ts - lastTS) / 1000, 0.05);
   lastTS = ts;
 
-  // --- 更新 ---
   if (state === 'playing') {
     const lvl = LEVELS[level];
 
@@ -706,11 +858,13 @@ function mainLoop(ts) {
         const h = headPos();
         combo++;
         comboTimer = 2.5;
+        if (combo > stats.maxCombo) stats.maxCombo = combo;
 
         if (p.isBomb) {
-          // 💣 炸弹！
-          score = Math.max(0, score + p.def.score); // 扣15分
-          combo = 0; // 重置连击
+          // 💣 炸弹
+          score = Math.max(0, score + p.def.score);
+          stats.roundBombs++;
+          combo = 0;
           document.getElementById('scoreVal').textContent = score;
           playBombSound();
           spawnParticles(h.x, h.y, '#ff4400', 30, true);
@@ -718,9 +872,8 @@ function mainLoop(ts) {
           spawnParticles(h.x, h.y, '#ff0000', 15, false);
           addFloatingText(h.x - 30, h.y - 20, p.def.score + '分', '#ff3333');
           screenFlash = 1;
-          // 屏幕震动
           wrapper.classList.remove('shake');
-          void wrapper.offsetWidth; // 触发 reflow 重启动画
+          void wrapper.offsetWidth;
           wrapper.classList.add('shake');
         } else {
           // 🍎 水果
@@ -728,17 +881,23 @@ function mainLoop(ts) {
           if (combo >= 5) pts = Math.floor(pts * 2);
           else if (combo >= 3) pts = Math.floor(pts * 1.5);
           score += pts;
+          stats.roundScore = score;
+          stats.roundFruits[p.def.name]++;
+          stats.roundTotalFruits++;
           document.getElementById('scoreVal').textContent = score;
           playEatSound(p.def, combo >= 3);
           spawnParticles(h.x, h.y, pts >= 12 ? '#ffd700' : '#fff', 16, false);
           const lbl = combo >= 3 ? ('+' + pts + ' x' + combo + '连击！') : ('+' + pts);
           addFloatingText(h.x - 20, h.y - 20, lbl, combo >= 3 ? '#ffd700' : '#a8e063');
 
-          // 实时检测是否达到目标分数，达标立即过关
+          // 实时达标过关
           if (score >= LEVELS[level].target) {
             clearInterval(countdownTimer);
             endRound();
           }
+
+          // 吃水果后检查成就
+          checkAchievements();
         }
       }
 
@@ -769,12 +928,11 @@ function mainLoop(ts) {
     floatingTexts = floatingTexts.filter(ft => ft.life > 0);
   }
 
-  // --- 渲染 ---
   render();
-
   requestAnimationFrame(mainLoop);
 }
 
+// ==================== 渲染 ====================
 function render() {
   // 背景渐变
   const bg = ctx.createRadialGradient(CX,CY,0,CX,CY,500);
@@ -806,22 +964,18 @@ function render() {
     ctx.scale(p.scale, p.scale);
 
     if (p.def.name === '蓝莓') {
-      // 手绘蓝莓（替代🫐，兼容不支持该emoji的系统）
       const r = p.def.radius;
       ctx.shadowColor = '#6366f1'; ctx.shadowBlur = 8;
-      // 底部小圆（3颗浆果）
       const drawBerry = (bx, by, br) => {
         const g = ctx.createRadialGradient(bx - br*0.2, by - br*0.3, 0, bx, by, br);
         g.addColorStop(0, '#818cf8'); g.addColorStop(0.6, '#4f46e5'); g.addColorStop(1, '#312e81');
         ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI*2); ctx.fillStyle = g; ctx.fill();
-        // 高光
         ctx.beginPath(); ctx.arc(bx - br*0.25, by - br*0.3, br*0.25, 0, Math.PI*2);
         ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fill();
       };
       drawBerry(-r*0.35, r*0.15, r*0.55);
       drawBerry(r*0.35, r*0.15, r*0.55);
       drawBerry(0, -r*0.25, r*0.6);
-      // 顶部叶子
       ctx.shadowBlur = 0;
       ctx.fillStyle = '#22c55e';
       ctx.beginPath(); ctx.ellipse(0, -r*0.7, r*0.35, r*0.15, -0.2, 0, Math.PI*2); ctx.fill();
@@ -875,10 +1029,9 @@ function render() {
     ctx.restore();
   }
 
-  // 最后10秒画面倒计时
+  // 最后10秒倒计时
   if (state === 'playing' && timeLeft <= 10 && timeLeft > 0) {
     ctx.save();
-    // 脉冲缩放效果：每秒前半段放大，后半段缩小
     const phase = (performance.now() % 1000) / 1000;
     const scale = 1 + Math.sin(phase * Math.PI) * 0.3;
     ctx.translate(CX, CY - 80);
@@ -886,7 +1039,6 @@ function render() {
     ctx.font = 'bold 120px "Segoe UI"';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    // 最后5秒红色，5-10秒橙色
     const urgent = timeLeft <= 5;
     ctx.fillStyle = urgent ? 'rgba(255,60,60,0.5)' : 'rgba(255,160,40,0.4)';
     ctx.shadowColor = urgent ? '#ff3333' : '#ff8800';
@@ -910,7 +1062,7 @@ function render() {
     ctx.restore();
   }
 
-  // idle 状态也画角色跟随鼠标
+  // idle 状态角色跟随鼠标
   if (state === 'start') {
     PLAYER.headAngle = Math.atan2(mouseY - PLAYER.y, mouseX - PLAYER.x);
   }
