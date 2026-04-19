@@ -682,3 +682,201 @@ function playTickSound(secondsLeft) {
     o2.start(now); o2.stop(now + 0.3);
   }
 }
+
+// ==================== 界面转场音效 ====================
+
+/** 按钮点击音效 - 短促的咔哒 */
+function playClickSound() {
+  ensureAudio();
+  const ac = audioCtx, now = ac.currentTime;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.connect(g); g.connect(ac.destination);
+  o.type = 'square';
+  o.frequency.setValueAtTime(800, now);
+  o.frequency.exponentialRampToValueAtTime(400, now + 0.05);
+  g.gain.setValueAtTime(0.15, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+  o.start(now); o.stop(now + 0.1);
+}
+
+/** 界面出现音效 - 轻柔的升起 */
+function playUIShowSound() {
+  ensureAudio();
+  const ac = audioCtx, now = ac.currentTime;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.connect(g); g.connect(ac.destination);
+  o.type = 'sine';
+  o.frequency.setValueAtTime(300, now);
+  o.frequency.exponentialRampToValueAtTime(600, now + 0.15);
+  g.gain.setValueAtTime(0.12, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+  o.start(now); o.stop(now + 0.25);
+}
+
+/** 暂停音效 - 幕布拉下 */
+function playPauseSound() {
+  ensureAudio();
+  const ac = audioCtx, now = ac.currentTime;
+  // 低沉的下降音
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.connect(g); g.connect(ac.destination);
+  o.type = 'triangle';
+  o.frequency.setValueAtTime(400, now);
+  o.frequency.exponentialRampToValueAtTime(100, now + 0.2);
+  g.gain.setValueAtTime(0.2, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+  o.start(now); o.stop(now + 0.35);
+}
+
+/** 恢复音效 - 幕布升起 */
+function playResumeSound() {
+  ensureAudio();
+  const ac = audioCtx, now = ac.currentTime;
+  // 清脆的上升音
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.connect(g); g.connect(ac.destination);
+  o.type = 'sine';
+  o.frequency.setValueAtTime(200, now);
+  o.frequency.exponentialRampToValueAtTime(600, now + 0.15);
+  g.gain.setValueAtTime(0.15, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+  o.start(now); o.stop(now + 0.25);
+}
+
+/** 连击里程碑音效 - 不同等级不同音调 */
+function playComboMilestoneSound(comboLevel) {
+  ensureAudio();
+  const ac = audioCtx, now = ac.currentTime;
+  // comboLevel: 1=普通, 2=10连击, 3=20连击, 4=30+连击
+  const configs = [
+    [523, 659],      // 普通连击
+    [659, 784, 988], // 10连击
+    [784, 988, 1175, 1319], // 20连击
+    [988, 1175, 1319, 1568, 1760] // 30+连击
+  ];
+  const notes = configs[Math.min(comboLevel - 1, 3)];
+  notes.forEach((freq, i) => {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.type = 'sine';
+    const t = now + i * 0.08;
+    o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.2, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+    o.start(t); o.stop(t + 0.3);
+  });
+}
+
+/** 高分水果获得音效 */
+function playHighScoreSound() {
+  ensureAudio();
+  const ac = audioCtx, now = ac.currentTime;
+  // 金币般的叮咚声
+  [1319, 1568, 1760, 2093].forEach((freq, i) => {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.type = 'sine';
+    const t = now + i * 0.06;
+    o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.15, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+    o.start(t); o.stop(t + 0.2);
+  });
+}
+
+/** 界面按钮悬停音效 - 轻柔提示 */
+function playHoverSound() {
+  ensureAudio();
+  const ac = audioCtx, now = ac.currentTime;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.connect(g); g.connect(ac.destination);
+  o.type = 'sine';
+  o.frequency.setValueAtTime(1000, now);
+  g.gain.setValueAtTime(0.05, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+  o.start(now); o.stop(now + 0.08);
+}
+
+/** 增强版过关音效 - 带和弦 */
+function playWinSoundEnhanced() {
+  ensureAudio();
+  const ac = audioCtx;
+  // 主旋律
+  [523, 659, 784, 1047, 1319].forEach((freq, i) => {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.type = 'sine';
+    const t = ac.currentTime + i * 0.12;
+    o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.25, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    o.start(t); o.stop(t + 0.35);
+  });
+  // 和弦伴奏
+  [392, 494, 587].forEach((freq, i) => {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.type = 'triangle';
+    const t = ac.currentTime + 0.3 + i * 0.05;
+    o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.12, t + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+    o.start(t); o.stop(t + 0.45);
+  });
+}
+
+/** 增强版失败音效 - 更低沉更有冲击力 */
+function playLoseSoundEnhanced() {
+  ensureAudio();
+  const ac = audioCtx;
+  [330, 262, 220, 165, 110].forEach((freq, i) => {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.type = 'sawtooth';
+    const f = ac.createBiquadFilter();
+    o.connect(f); f.connect(g);
+    f.type = 'lowpass';
+    f.frequency.value = 500;
+    const t = ac.currentTime + i * 0.15;
+    o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.3, t + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+    o.start(t); o.stop(t + 0.45);
+  });
+}
+
+/** 全通关庆典音效 */
+function playClearCelebrationSound() {
+  ensureAudio();
+  const ac = audioCtx;
+  // 胜利号角风格的音效
+  const melody = [523, 659, 784, 880, 988, 1047, 1175, 1319, 1568, 1760];
+  melody.forEach((freq, i) => {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.type = i < 5 ? 'sine' : 'triangle';
+    const t = ac.currentTime + i * 0.1;
+    o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(i < 5 ? 0.25 : 0.15, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+    o.start(t); o.stop(t + 0.4);
+  });
+  // 低音和弦
+  [262, 330, 392, 523].forEach((freq, i) => {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.type = 'triangle';
+    const t = ac.currentTime + 0.5 + i * 0.06;
+    o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.15, t + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+    o.start(t); o.stop(t + 0.55);
+  });
+}

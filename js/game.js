@@ -117,41 +117,68 @@ document.getElementById('cheatStartItem').addEventListener('change', e => {
 
 document.getElementById('btnStart').addEventListener('click', () => {
   ensureAudio();
+  if (typeof playClickSound === 'function') playClickSound();
   loadProgress(); // 加载已保存的进度
   showLevelSelect(); // 打开关卡选择界面
 });
 document.getElementById('btnNext').addEventListener('click', () => {
+  if (typeof playClickSound === 'function') playClickSound();
   level++;
   showLevelPreview();
 });
 document.getElementById('btnRetry').addEventListener('click', () => {
+  if (typeof playClickSound === 'function') playClickSound();
   showLevelPreview();
 });
-document.getElementById('btnRestart1').addEventListener('click', backToStart);
-document.getElementById('btnRestart3').addEventListener('click', backToStart);
+document.getElementById('btnRestart1').addEventListener('click', () => {
+  if (typeof playClickSound === 'function') playClickSound();
+  backToStart();
+});
+document.getElementById('btnRestart3').addEventListener('click', () => {
+  if (typeof playClickSound === 'function') playClickSound();
+  backToStart();
+});
 // 新增：通关/失败界面返回首页按钮
-document.getElementById('btnBackHomeWin').addEventListener('click', backToStart);
-document.getElementById('btnBackHomeLose').addEventListener('click', backToStart);
-document.getElementById('btnBackHomeClear').addEventListener('click', backToStart);
+document.getElementById('btnBackHomeWin').addEventListener('click', () => {
+  if (typeof playClickSound === 'function') playClickSound();
+  backToStart();
+});
+document.getElementById('btnBackHomeLose').addEventListener('click', () => {
+  if (typeof playClickSound === 'function') playClickSound();
+  backToStart();
+});
+document.getElementById('btnBackHomeClear').addEventListener('click', () => {
+  if (typeof playClickSound === 'function') playClickSound();
+  backToStart();
+});
 
 // 关卡预览开始按钮
 document.getElementById('btnStartLevel').addEventListener('click', () => {
+  if (typeof playClickSound === 'function') playClickSound();
   hideAllOverlays();
   beginRound();
 });
 
 // 关卡预览返回按钮
 document.getElementById('btnBackToSelect').addEventListener('click', () => {
+  if (typeof playClickSound === 'function') playClickSound();
   showLevelSelect();
 });
 
 // ---- 暂停功能 ----
-document.getElementById('btnResume').addEventListener('click', resumeGame);
+document.getElementById('btnResume').addEventListener('click', () => {
+  if (typeof playClickSound === 'function') playClickSound();
+  resumeGame();
+});
 document.getElementById('btnRetryLevel').addEventListener('click', () => {
+  if (typeof playClickSound === 'function') playClickSound();
   hideAllOverlays();
   beginRound();
 });
-document.getElementById('btnBackHome').addEventListener('click', backToStart);
+document.getElementById('btnBackHome').addEventListener('click', () => {
+  if (typeof playClickSound === 'function') playClickSound();
+  backToStart();
+});
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
@@ -167,6 +194,7 @@ function pauseGame() {
   state = 'paused';
   if (countdownTimer) clearInterval(countdownTimer);
   if (typeof stopBGM === 'function') stopBGM();
+  if (typeof playPauseSound === 'function') playPauseSound();
   const lvl = LEVELS[level];
   document.getElementById('pauseInfo').textContent =
     currentTheme.emoji + ' 第 ' + (level + 1) + ' 关 — ' + lvl.name + '  得分：' + score + '/' + lvl.target;
@@ -176,6 +204,7 @@ function pauseGame() {
 function resumeGame() {
   hideAllOverlays();
   state = 'playing';
+  if (typeof playResumeSound === 'function') playResumeSound();
   if (typeof playThemeBGM === 'function') playThemeBGM(currentTheme.bgmStyle);
   // 恢复倒计时
   countdownTimer = setInterval(() => {
@@ -198,6 +227,8 @@ function hideAllOverlays() {
 }
 function showOverlay(key) {
   overlays[key].classList.remove('hidden');
+  // 播放界面出现音效
+  if (typeof playUIShowSound === 'function') playUIShowSound();
 }
 function backToStart() {
   hideAllOverlays();
@@ -685,8 +716,16 @@ function endRound() {
     }
 
     if (level >= LEVELS.length - 1) {
-      playWinSound();
-      setTimeout(playWinSound, 600);
+      // 全通关 - 使用增强音效
+      if (typeof playClearCelebrationSound === 'function') playClearCelebrationSound();
+      else { playWinSound(); setTimeout(playWinSound, 600); }
+
+      // 创建金色星尘和烟花效果
+      setTimeout(() => {
+        createStardust('clearConfetti');
+        createFireworks('clearFireworks');
+      }, 300);
+
       document.getElementById('clearMsg').textContent = '🏆 全关通关！';
       document.getElementById('clearDetail').innerHTML =
         '<div class="result-section result-section-full">' +
@@ -698,18 +737,25 @@ function endRound() {
         '<div class="result-section-title">⭐ 关卡评价</div>' +
         '<div class="result-row"><span class="result-label">用时</span><span class="result-value">' + elapsed.toFixed(1) + 's</span></div>' +
         '<div class="result-row"><span class="result-label">剩余</span><span class="result-value">' + timeLeft.toFixed(1) + 's</span></div>' +
-        '<div class="result-rank" style="background:' + rankBg + ';color:' + rankColor + '">' + rank + '</div>' +
+        '<div class="result-rank pulse-glow" style="background:' + rankBg + ';color:' + rankColor + '">' + rank + '</div>' +
         '</div>' +
-        '<p style="margin-top:14px;color:#888;font-size:13px">你已通过全部 ' + LEVELS.length + ' 关，征服了所有五大主题！</p>';
+        '<p style="margin-top:14px;color:#ffd700;font-size:13px">🏆 你已通过全部 ' + LEVELS.length + ' 关，征服了所有五大主题！</p>';
       showOverlay('clear');
     } else {
-      playWinSound();
+      // 过关 - 使用增强音效
+      if (typeof playWinSoundEnhanced === 'function') playWinSoundEnhanced();
+      else playWinSound();
+
+      // 创建彩带庆祝效果
+      setTimeout(() => {
+        createConfetti('winConfetti', ['#a8e063', '#ffd700', '#4da6ff', '#feca57']);
+      }, 200);
 
       // 检测下一关是否新主题
       const nextTheme = THEMES.find(t => level + 1 >= t.startLevel && level + 1 <= t.endLevel);
       let extraMsg = '';
       if (nextTheme && nextTheme.id !== currentTheme.id) {
-        extraMsg = '<br>即将进入新主题：' + nextTheme.emoji + ' ' + nextTheme.name + '！';
+        extraMsg = '<br>🌟 即将进入新主题：' + nextTheme.emoji + ' ' + nextTheme.name + '！';
       }
 
       document.getElementById('winMsg').textContent = '第 ' + (level + 1) + ' 关完成！';
@@ -723,15 +769,25 @@ function endRound() {
         '<div class="result-section-title">⭐ 关卡评价</div>' +
         '<div class="result-row"><span class="result-label">用时</span><span class="result-value">' + elapsed.toFixed(1) + 's</span></div>' +
         '<div class="result-row"><span class="result-label">剩余</span><span class="result-value">' + timeLeft.toFixed(1) + 's</span></div>' +
-        '<div class="result-rank" style="background:' + rankBg + ';color:' + rankColor + '">' + rank + '</div>' +
+        '<div class="result-rank pulse-glow" style="background:' + rankBg + ';color:' + rankColor + '">' + rank + '</div>' +
         '</div>' +
         '<p style="margin-top:10px;color:#888;font-size:13px">评价规则：剩余时间 ≥20s=S 15s=A 10s=B 5s=C D' + extraMsg + '</p>';
       showOverlay('win');
     }
   } else {
-    playLoseSound();
+    // 失败 - 使用增强音效
+    if (typeof playLoseSoundEnhanced === 'function') playLoseSoundEnhanced();
+    else playLoseSound();
+
+    // 触发屏幕红闪
+    setTimeout(() => {
+      const wrapper = document.getElementById('gameWrapper');
+      wrapper.classList.add('screen-red-flash');
+      setTimeout(() => wrapper.classList.remove('screen-red-flash'), 500);
+    }, 100);
+
     const remaining = ROUND_TIME - elapsed;
-    document.getElementById('loseMsg').textContent = '第 ' + (level + 1) + ' 关失败';
+    document.getElementById('loseMsg').textContent = '💀 第 ' + (level + 1) + ' 关失败';
     document.getElementById('loseDetail').innerHTML =
       '<div class="result-section">' +
       '<div class="result-section-title">🎯 本关得分</div>' +
@@ -743,7 +799,7 @@ function endRound() {
       '<div class="result-row"><span class="result-label">用时</span><span class="result-value">' + elapsed.toFixed(1) + 's</span></div>' +
       '<div class="result-row"><span class="result-label">剩余</span><span class="result-value">' + remaining.toFixed(1) + 's</span></div>' +
       '</div>' +
-      '<p style="margin-top:14px;color:#888;font-size:13px">还差 ' + (lvl.target - score) + ' 分，加油！</p>';
+      '<p style="margin-top:14px;color:#ff6b6b;font-size:13px">💪 还差 ' + (lvl.target - score) + ' 分，不要放弃！</p>';
     showOverlay('lose');
   }
 
@@ -796,6 +852,112 @@ function spawnParticles(x, y, color, count, big) {
 
 function addFloatingText(x, y, text, color) {
   floatingTexts.push({ x, y, text, color, alpha: 1, vy: -60, life: 1.5 });
+}
+
+// ==================== 界面特效函数 ====================
+
+/** 创建过关彩带效果 */
+function createConfetti(containerId, colors) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  const confettiColors = colors || ['#ffd700', '#ff6b6b', '#a8e063', '#4da6ff', '#ff9ff3', '#feca57'];
+
+  for (let i = 0; i < 50; i++) {
+    const confetti = document.createElement('div');
+    confetti.className = 'confetti';
+    confetti.style.left = Math.random() * 100 + '%';
+    confetti.style.backgroundColor = confettiColors[Math.floor(Math.random() * confettiColors.length)];
+    confetti.style.animationDelay = Math.random() * 0.5 + 's';
+    confetti.style.animationDuration = (2 + Math.random() * 2) + 's';
+
+    // 不同形状
+    const shapes = ['50%', '0', '50% 0 50% 50%'];
+    confetti.style.borderRadius = shapes[Math.floor(Math.random() * shapes.length)];
+
+    // 随机大小
+    const size = 6 + Math.random() * 8;
+    confetti.style.width = size + 'px';
+    confetti.style.height = size + 'px';
+
+    container.appendChild(confetti);
+  }
+}
+
+/** 创建烟花效果 */
+function createFireworks(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+
+  const fireworkColors = ['#ffd700', '#ff6b6b', '#4da6ff', '#a8e063', '#ff9ff3'];
+
+  for (let fw = 0; fw < 5; fw++) {
+    setTimeout(() => {
+      const centerX = 20 + Math.random() * 60;
+      const centerY = 20 + Math.random() * 40;
+      const color = fireworkColors[Math.floor(Math.random() * fireworkColors.length)];
+
+      for (let i = 0; i < 20; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'firework';
+        particle.style.left = centerX + '%';
+        particle.style.top = centerY + '%';
+        particle.style.backgroundColor = color;
+
+        const angle = (i / 20) * Math.PI * 2;
+        const distance = 50 + Math.random() * 80;
+        particle.style.setProperty('--tx', Math.cos(angle) * distance + 'px');
+        particle.style.setProperty('--ty', Math.sin(angle) * distance + 'px');
+
+        container.appendChild(particle);
+      }
+
+      // 播放爆炸音效
+      if (typeof playBombSound === 'function') {
+        setTimeout(() => playBombSound(), fw * 300);
+      }
+    }, fw * 400);
+  }
+}
+
+/** 创建金色星尘效果 */
+function createStardust(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  for (let i = 0; i < 30; i++) {
+    setTimeout(() => {
+      const dust = document.createElement('div');
+      dust.className = 'stardust';
+      dust.style.left = Math.random() * 100 + '%';
+      dust.style.top = Math.random() * 100 + '%';
+      dust.style.animationDelay = Math.random() * 0.5 + 's';
+      container.appendChild(dust);
+    }, i * 50);
+  }
+}
+
+/** 屏幕边缘闪光效果 */
+function triggerScreenEdgeFlash(color) {
+  const wrapper = document.getElementById('gameWrapper');
+  wrapper.style.boxShadow = 'inset 0 0 100px ' + color;
+  setTimeout(() => {
+    wrapper.style.boxShadow = 'none';
+  }, 300);
+}
+
+/** 连击里程碑检测并触发特效 */
+function checkComboMilestone(combo) {
+  if (combo === 10 || combo === 20 || combo === 30 || combo === 50) {
+    const level = combo >= 30 ? 4 : combo >= 20 ? 3 : combo >= 10 ? 2 : 1;
+    if (typeof playComboMilestoneSound === 'function') {
+      playComboMilestoneSound(level);
+    }
+    // 触发屏幕边框闪光
+    const colors = ['#ffd700', '#ff9ff3', '#4da6ff', '#ff6b6b'];
+    triggerScreenEdgeFlash(colors[Math.min(level - 1, 3)] + '80');
+  }
 }
 
 // ==================== 碰撞 ====================
@@ -969,7 +1131,22 @@ function mainLoop(ts) {
           stats.roundTotalFruits++;
           document.getElementById('scoreVal').textContent = score;
           playEatSound(p.def, combo >= 3);
-          spawnParticles(h.x, h.y, pts >= 12 ? '#ffd700' : '#fff', 16, false);
+
+          // 高分水果特效增强（≥12分）
+          const isHighScore = pts >= 12;
+          if (isHighScore) {
+            // 高分水果：添加爆开 emoji 和金色光晕
+            spawnParticles(h.x, h.y, '#ffd700', 25, true);
+            spawnParticles(h.x, h.y, '#fff', 15, false);
+            addFloatingText(h.x - 30, h.y - 50, '💥', '#ffd700');
+            // 触发屏幕边缘金色闪光
+            triggerScreenEdgeFlash('rgba(255,215,0,0.3)');
+            // 播放高分音效
+            if (typeof playHighScoreSound === 'function') playHighScoreSound();
+          } else {
+            spawnParticles(h.x, h.y, '#fff', 16, false);
+          }
+
           const lbl = combo >= 3 ? ('+' + pts + ' x' + combo + '连击！') : ('+' + pts);
           // 根据连击档位调整颜色
           let comboColor = '#ffd700';
@@ -978,6 +1155,9 @@ function mainLoop(ts) {
           else if (combo >= 16) comboColor = '#ff8800';  // 橙黄
           else if (combo >= 11) comboColor = '#ffaa00';  // 黄橙
           addFloatingText(h.x - 20, h.y - 20, lbl, combo >= 3 ? comboColor : currentTheme.player.accentColor);
+
+          // 连击里程碑检测
+          checkComboMilestone(combo);
 
           if (activeEffects.double.active) {
             addFloatingText(h.x - 10, h.y - 45, '✖️2 DOUBLE', '#ef4444');
@@ -1421,7 +1601,13 @@ function renderLevelSelect() {
                      '<span class="level-status-icon">' + statusIcon + '</span>';
 
     if (status !== 'locked') {
+      // 悬停音效
+      card.addEventListener('mouseenter', () => {
+        if (typeof playHoverSound === 'function') playHoverSound();
+      });
+      // 点击音效
       card.addEventListener('click', () => {
+        if (typeof playClickSound === 'function') playClickSound();
         level = i;
         showLevelPreview();
       });
@@ -1461,10 +1647,17 @@ function nextTheme() {
 
 // 关卡选择界面事件绑定
 document.getElementById('btnBackToStart').addEventListener('click', () => {
+  if (typeof playClickSound === 'function') playClickSound();
   backToStart();
 });
-document.getElementById('btnPrevTheme').addEventListener('click', prevTheme);
-document.getElementById('btnNextTheme').addEventListener('click', nextTheme);
+document.getElementById('btnPrevTheme').addEventListener('click', () => {
+  if (typeof playClickSound === 'function') playClickSound();
+  prevTheme();
+});
+document.getElementById('btnNextTheme').addEventListener('click', () => {
+  if (typeof playClickSound === 'function') playClickSound();
+  nextTheme();
+});
 
 // ==================== 初始化 & 启动 ====================
 initItemBar();
