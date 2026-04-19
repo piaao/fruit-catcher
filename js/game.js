@@ -621,12 +621,23 @@ function endRound() {
     if (stats.roundBombs === 0) stats.noBombWin = true;
     if (elapsed <= 30) stats.speedClear = true;
 
+    // 计算用时评级
+    const timeLeft = ROUND_TIME - elapsed;
+    let rank, rankColor, rankBg;
+    if (timeLeft >= 20)      { rank = 'S'; rankColor = '#ffd700'; rankBg = 'linear-gradient(135deg, #ffd700, #ff8c00)'; }
+    else if (timeLeft >= 15) { rank = 'A'; rankColor = '#60d060'; rankBg = 'linear-gradient(135deg, #60d060, #40a040)'; }
+    else if (timeLeft >= 10) { rank = 'B'; rankColor = '#4da6ff'; rankBg = 'linear-gradient(135deg, #4da6ff, #2070c0)'; }
+    else if (timeLeft >= 5)  { rank = 'C'; rankColor = '#ffa500'; rankBg = 'linear-gradient(135deg, #ffa500, #cc8000)'; }
+    else                     { rank = 'D'; rankColor = '#888888'; rankBg = 'linear-gradient(135deg, #888, #555)'; }
+
     if (level >= LEVELS.length - 1) {
       playWinSound();
       setTimeout(playWinSound, 600);
-      document.getElementById('clearMsg').textContent = '全关通关！总得分：' + score;
-      document.getElementById('clearDetail').textContent =
-        '你已通过全部 ' + LEVELS.length + ' 关，征服了所有五大主题！你是真正的水果之王！';
+      document.getElementById('clearMsg').textContent = '🏆 全关通关！';
+      document.getElementById('clearDetail').innerHTML =
+        '<div class="result-summary">用时 <b style="color:#fff">' + elapsed.toFixed(1) + '秒</b></div>' +
+        '<div class="result-rank" style="background:' + rankBg + ';color:' + rankColor + '">' + rank + '</div>' +
+        '<p style="margin-top:12px">你已通过全部 ' + LEVELS.length + ' 关，征服了所有五大主题！你是真正的水果之王！</p>';
       showOverlay('clear');
     } else {
       playWinSound();
@@ -635,19 +646,33 @@ function endRound() {
       const nextTheme = THEMES.find(t => level + 1 >= t.startLevel && level + 1 <= t.endLevel);
       let extraMsg = '';
       if (nextTheme && nextTheme.id !== currentTheme.id) {
-        extraMsg = '\n即将进入新主题：' + nextTheme.emoji + ' ' + nextTheme.name + '！';
+        extraMsg = '<br>即将进入新主题：' + nextTheme.emoji + ' ' + nextTheme.name + '！';
       }
 
-      document.getElementById('winMsg').textContent = '第 ' + (level + 1) + ' 关完成！得分 ' + score;
-      document.getElementById('winDetail').textContent =
-        currentTheme.emoji + ' ' + lvl.name + ' — 目标：' + lvl.target + '  达成：' + score + '  超额：' + (score - lvl.target) + ' 分' + extraMsg;
+      document.getElementById('winMsg').textContent = '第 ' + (level + 1) + ' 关完成！';
+      document.getElementById('winDetail').innerHTML =
+        '<div class="result-summary">' + currentTheme.emoji + ' ' + lvl.name + '</div>' +
+        '<div class="result-stats">' +
+        '<div><span class="stat-label">目标</span><span class="stat-val">' + lvl.target + '</span></div>' +
+        '<div><span class="stat-label">得分</span><span class="stat-val" style="color:#a8e063">+' + (score - lvl.target) + '</span></div>' +
+        '<div><span class="stat-label">用时</span><span class="stat-val">' + elapsed.toFixed(1) + 's</span></div>' +
+        '</div>' +
+        '<div class="result-rank" style="background:' + rankBg + ';color:' + rankColor + '">' + rank + '</div>' +
+        '<p style="margin-top:10px;color:#888;font-size:13px">' + (score - lvl.target) + ' 分超额 · 剩余时间 ' + timeLeft.toFixed(1) + 's' + extraMsg + '</p>';
       showOverlay('win');
     }
   } else {
     playLoseSound();
-    document.getElementById('loseMsg').textContent = '第 ' + (level + 1) + ' 关失败，差 ' + (lvl.target - score) + ' 分';
-    document.getElementById('loseDetail').textContent =
-      currentTheme.emoji + ' ' + lvl.name + ' — 目标：' + lvl.target + '  你的得分：' + score;
+    const remaining = ROUND_TIME - elapsed;
+    document.getElementById('loseMsg').textContent = '第 ' + (level + 1) + ' 关失败';
+    document.getElementById('loseDetail').innerHTML =
+      '<div class="result-summary">' + currentTheme.emoji + ' ' + lvl.name + '</div>' +
+      '<div class="result-stats">' +
+      '<div><span class="stat-label">目标</span><span class="stat-val">' + lvl.target + '</span></div>' +
+      '<div><span class="stat-label">得分</span><span class="stat-val" style="color:#ff6b6b">-' + (lvl.target - score) + '</span></div>' +
+      '<div><span class="stat-label">用时</span><span class="stat-val">' + elapsed.toFixed(1) + 's</span></div>' +
+      '</div>' +
+      '<p style="margin-top:10px;color:#888;font-size:13px">还差 ' + (lvl.target - score) + ' 分，加油！</p>';
     showOverlay('lose');
   }
 
