@@ -197,8 +197,8 @@ function showLevelPreview() {
   document.getElementById('previewStars').textContent = '★'.repeat(stars) + '☆'.repeat(5 - stars);
   document.getElementById('previewStars').style.color = stars >= 4 ? '#ff6b6b' : stars >= 3 ? '#ffa500' : '#ffd700';
 
-  // 生成水果列表（渐进式，使用限制后的水果池）
-  const fruits = getCurrentFruitPool();
+  // 生成水果列表（按分数从低到高排列 + NEW 标记）
+  const fruits = getCurrentFruitPool().sort((a, b) => a.score - b.score);
   const fruitsHtml = fruits.map(f => {
     const speedClass = f.speedMult >= 2.5 ? 'fruit-fast' : f.speedMult >= 2.0 ? 'fruit-medium' : 'fruit-slow';
     const isNew = !seenFruits.has(f.name);
