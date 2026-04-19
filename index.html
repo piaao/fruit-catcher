@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🍎 水果吃货 - Fruit Catcher</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="gameWrapper">
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- 成就提示 -->
+  <div id="achievementToast">
+    <span class="ach-icon">🏅</span>
+    <div class="ach-title">成就解锁</div>
+    <div class="ach-name" id="achName"></div>
+    <div class="ach-desc" id="achDesc"></div>
+  </div>
+
+  <!-- 道具使用提示 -->
+  <div id="itemUseHint"></div>
+
+  <!-- 道具栏 -->
+  <div id="itemBar"></div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-panel">
+      <div class="hud-label">关卡</div>
+      <div class="hud-value" id="levelVal">1</div>
+    </div>
+    <div class="hud-panel">
+      <div class="hud-label">得分</div>
+      <div class="hud-value" id="scoreVal">0</div>
+    </div>
+    <div class="hud-panel">
+      <div class="hud-label">目标</div>
+      <div class="hud-value" id="targetVal" style="color:#a8e063">66</div>
+    </div>
+    <div class="hud-panel">
+      <div class="hud-label">剩余</div>
+      <div class="hud-value" id="timerVal">45</div>
+    </div>
+  </div>
+  <div id="levelInfo">第 <b id="levelName">1</b> 关 — <b id="levelDesc">桃源初见</b></div>
+
+  <!-- 开始界面 -->
+  <div class="overlay" id="startScreen">
+    <h1 style="color:#ffd700">🍎 水果吃货</h1>
+    <h2>Fruit Catcher</h2>
+    <p>水果从四周射来——用<b style="color:#fff">鼠标</b>控制角色头部朝向，让水果碰到头部即可吃掉！<br>
+       越<b style="color:#a8e063">轻</b>的水果分数越高，但飞行越快！每关<b style="color:#fff">45秒</b>，达到目标分数过关。<br>
+       <b style="color:#ff6b6b">小心炸弹💣</b>！碰到会扣15分并产生爆炸！<br>
+       <b style="color:#ffd700">道具🎁</b>会随机掉落，碰到收集后按 <b style="color:#fff">数字键 1-5</b> 释放对应道具！</p>
+
+    <!-- 五大主题展示 -->
+    <div class="theme-showcase">
+      <div class="theme-card">
+        <div class="theme-emoji">🍑</div>
+        <div class="theme-name">核果园</div>
+        <div class="theme-range">1-10关</div>
+      </div>
+      <div class="theme-card">
+        <div class="theme-emoji">🍊</div>
+        <div class="theme-name">柑橘岛</div>
+        <div class="theme-range">11-20关</div>
+      </div>
+      <div class="theme-card">
+        <div class="theme-emoji">🫐</div>
+        <div class="theme-name">浆果谷</div>
+        <div class="theme-range">21-30关</div>
+      </div>
+      <div class="theme-card">
+        <div class="theme-emoji">🥭</div>
+        <div class="theme-name">热带雨林</div>
+        <div class="theme-range">31-40关</div>
+      </div>
+      <div class="theme-card">
+        <div class="theme-emoji">🍎</div>
+        <div class="theme-name">仁果殿</div>
+        <div class="theme-range">41-50关</div>
+      </div>
+    </div>
+
+    <p style="font-size:13px;color:#888;margin-top:4px">共50关 · 5大主题 · 每个主题拥有独特人物、背景、音乐和水果</p>
+
+    <button class="btn btn-primary" id="btnStart">开始游戏</button>
+  </div>
+
+  <!-- 过关界面 -->
+  <div class="overlay hidden" id="winScreen">
+    <h1 style="color:#a8e063">🎉 过关！</h1>
+    <h2 id="winMsg"></h2>
+    <p id="winDetail"></p>
+    <div style="display:flex;gap:12px">
+      <button class="btn btn-success" id="btnNext">下一关 →</button>
+      <button class="btn btn-primary" id="btnRestart1">重新开始</button>
+    </div>
+  </div>
+
+  <!-- 失败界面 -->
+  <div class="overlay hidden" id="loseScreen">
+    <h1 style="color:#ff6b6b">💀 失败！</h1>
+    <h2 id="loseMsg"></h2>
+    <p id="loseDetail"></p>
+    <button class="btn btn-danger" id="btnRetry">再试一次</button>
+    <button class="btn btn-primary" id="btnRestart2">回到开始</button>
+  </div>
+
+  <!-- 通关界面 -->
+  <div class="overlay hidden" id="clearScreen">
+    <h1 style="color:#ffd700">🏆 全部通关！</h1>
+    <h2 id="clearMsg"></h2>
+    <p id="clearDetail"></p>
+    <button class="btn btn-primary" id="btnRestart3">再玩一次</button>
+  </div>
+
+  <!-- 暂停界面 -->
+  <div class="overlay hidden" id="pauseScreen">
+    <h1 style="color:#fff">⏸️ 游戏暂停</h1>
+    <h2 id="pauseInfo"></h2>
+    <p style="color:#666">按 <b style="color:#fff">ESC</b> 继续游戏</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+      <button class="btn btn-success" id="btnResume">继续游戏</button>
+      <button class="btn btn-danger" id="btnRetryLevel">重玩此关</button>
+      <button class="btn btn-primary" id="btnBackHome">返回首页</button>
+    </div>
+  </div>
+</div>
+
+<!-- JS 模块（按依赖顺序加载） -->
+<script src="js/config.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/items.js"></script>
+<script src="js/achievements.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
