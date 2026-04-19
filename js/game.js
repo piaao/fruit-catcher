@@ -1052,15 +1052,18 @@ function triggerScreenEdgeFlash(color) {
 
 /** 连击里程碑检测并触发特效 */
 function checkComboMilestone(combo) {
-  if (combo === 10 || combo === 20 || combo === 30 || combo === 50) {
-    const level = combo >= 30 ? 4 : combo >= 20 ? 3 : combo >= 10 ? 2 : 1;
-    if (typeof playComboMilestoneSound === 'function') {
-      playComboMilestoneSound(level);
-    }
-    // 触发屏幕边框闪光
-    const colors = ['#ffd700', '#ff9ff3', '#4da6ff', '#ff6b6b'];
-    triggerScreenEdgeFlash(colors[Math.min(level - 1, 3)] + '80');
+  // 里程碑: 2, 5, 7, 10, 13, 17, 22, 31, 50
+  const milestones = [2, 5, 7, 10, 13, 17, 22, 31, 50];
+  if (!milestones.includes(combo)) return;
+
+  // 计算等级：里程碑越靠后等级越高
+  const level = Math.min(milestones.indexOf(combo) + 1, 5);
+  if (typeof playComboMilestoneSound === 'function') {
+    playComboMilestoneSound(level);
   }
+  // 触发屏幕边框闪光
+  const colors = ['#a8e063', '#88cc44', '#ffd700', '#ff9ff3', '#ff6b6b'];
+  triggerScreenEdgeFlash(colors[Math.min(level - 1, 4)] + '80');
 }
 
 /** 主题通关庆祝效果 */
@@ -1166,11 +1169,13 @@ function mainLoop(ts) {
       if (Math.random() < 0.3) spawnProjectile();
     }
 
-    // 道具掉落生成
+    // 道具掉落生成（前10关更频繁）
     itemSpawnTimer += dt * 1000;
-    if (itemSpawnTimer >= ITEM_SPAWN_INTERVAL) {
-      itemSpawnTimer -= ITEM_SPAWN_INTERVAL;
-      if (Math.random() < ITEM_DROP_CHANCE) {
+    const spawnInterval = level < 10 ? ITEM_SPAWN_INTERVAL_EARLY : ITEM_SPAWN_INTERVAL;
+    const dropChance = level < 10 ? ITEM_DROP_CHANCE_EARLY : ITEM_DROP_CHANCE;
+    if (itemSpawnTimer >= spawnInterval) {
+      itemSpawnTimer -= spawnInterval;
+      if (Math.random() < dropChance) {
         spawnItemDrop();
       }
     }
@@ -1282,13 +1287,16 @@ function mainLoop(ts) {
           }
         } else {
           let pts = p.def.score;
-          // 7档连击倍率（最高50连击3倍）
+          // 9档连击倍率（新增2连击、5连击档位）
           if (combo >= 31)       pts = Math.round(pts * 3.0);
-          else if (combo >= 21) pts = Math.round(pts * 2.5);
-          else if (combo >= 16) pts = Math.round(pts * 2.0);
-          else if (combo >= 11) pts = Math.round(pts * 1.8);
-          else if (combo >= 7)  pts = Math.round(pts * 1.5);
-          else if (combo >= 3)  pts = Math.round(pts * 1.2);
+          else if (combo >= 22) pts = Math.round(pts * 2.5);
+          else if (combo >= 17) pts = Math.round(pts * 2.2);
+          else if (combo >= 13) pts = Math.round(pts * 2.0);
+          else if (combo >= 10) pts = Math.round(pts * 1.8);
+          else if (combo >= 7)  pts = Math.round(pts * 1.6);
+          else if (combo >= 5)  pts = Math.round(pts * 1.5);
+          else if (combo >= 3)  pts = Math.round(pts * 1.3);
+          else if (combo >= 2)  pts = Math.round(pts * 1.2);
           if (activeEffects.double.active) pts *= 2;
           score += pts;
           stats.roundScore = score;
@@ -1312,14 +1320,17 @@ function mainLoop(ts) {
             spawnParticles(h.x, h.y, '#fff', 16, false);
           }
 
-          const lbl = combo >= 3 ? ('+' + pts + ' x' + combo + '连击！') : ('+' + pts);
+          const lbl = combo >= 2 ? ('+' + pts + ' x' + combo + '连击！') : ('+' + pts);
           // 根据连击档位调整颜色
           let comboColor = '#ffd700';
           if (combo >= 31) comboColor = '#ff3030';      // 红色-最高档
-          else if (combo >= 21) comboColor = '#ff6600';  // 橙色
-          else if (combo >= 16) comboColor = '#ff8800';  // 橙黄
-          else if (combo >= 11) comboColor = '#ffaa00';  // 黄橙
-          addFloatingText(h.x - 20, h.y - 20, lbl, combo >= 3 ? comboColor : currentTheme.player.accentColor);
+          else if (combo >= 22) comboColor = '#ff6600';  // 橙色
+          else if (combo >= 17) comboColor = '#ff8800';  // 橙黄
+          else if (combo >= 13) comboColor = '#ffaa00';  // 黄橙
+          else if (combo >= 10) comboColor = '#ffcc00';  // 亮黄
+          else if (combo >= 7) comboColor = '#ffdd33';   // 金黄
+          else if (combo >= 5) comboColor = '#ffee66';   // 浅金
+          addFloatingText(h.x - 20, h.y - 20, lbl, combo >= 2 ? comboColor : currentTheme.player.accentColor);
 
           // 连击里程碑检测
           checkComboMilestone(combo);
@@ -1576,11 +1587,22 @@ function render() {
 
   // 连击显示（使用HTML元素）
   const comboEl = document.getElementById('comboDisplay');
-  if (combo >= 3 && comboTimer > 0 && state === 'playing') {
-    const mult = combo >= 31 ? 3.0 : combo >= 21 ? 2.5 : combo >= 16 ? 2.0 : combo >= 11 ? 1.8 : combo >= 7 ? 1.5 : 1.2;
-    const color = combo >= 31 ? '#ff3030' : combo >= 21 ? '#ff6600' : combo >= 16 ? '#ff8800' : combo >= 11 ? '#ffaa00' : '#ffd700';
-    const fire = combo >= 31 ? '💥' : combo >= 21 ? '⚡' : combo >= 16 ? '🔥' : combo >= 11 ? '🔥' : '✨';
-    const scale = combo >= 31 ? 1.4 : combo >= 21 ? 1.25 : combo >= 16 ? 1.15 : 1.0;
+  if (combo >= 2 && comboTimer > 0 && state === 'playing') {
+    // 获取倍率
+    let mult = 1.0;
+    if (combo >= 31) mult = 3.0;
+    else if (combo >= 22) mult = 2.5;
+    else if (combo >= 17) mult = 2.2;
+    else if (combo >= 13) mult = 2.0;
+    else if (combo >= 10) mult = 1.8;
+    else if (combo >= 7) mult = 1.6;
+    else if (combo >= 5) mult = 1.5;
+    else if (combo >= 3) mult = 1.3;
+    else if (combo >= 2) mult = 1.2;
+
+    const color = combo >= 31 ? '#ff3030' : combo >= 22 ? '#ff6600' : combo >= 17 ? '#ff8800' : combo >= 13 ? '#ffaa00' : combo >= 10 ? '#ffcc00' : combo >= 7 ? '#ffdd33' : combo >= 5 ? '#ffee66' : '#ffd700';
+    const fire = combo >= 31 ? '💥' : combo >= 22 ? '⚡' : combo >= 17 ? '🔥' : combo >= 13 ? '🔥' : combo >= 10 ? '✨' : combo >= 5 ? '✨' : '✨';
+    const scale = combo >= 31 ? 1.4 : combo >= 22 ? 1.25 : combo >= 17 ? 1.2 : combo >= 13 ? 1.15 : 1.1;
     comboEl.innerHTML = fire + '<br>' + combo + '连击<br>x' + mult;
     comboEl.style.color = color;
     comboEl.style.fontSize = (18 * scale) + 'px';
