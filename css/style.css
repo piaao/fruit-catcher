@@ -317,3 +317,111 @@ canvas {
   color: #888;
   font-weight: 400;
 }
+
+/* ---- 关卡预览界面 ---- */
+#levelPreviewScreen {
+  background: rgba(0,0,0,0.88);
+  gap: 12px;
+}
+
+.preview-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.preview-theme-emoji {
+  font-size: 56px;
+  line-height: 1;
+  filter: drop-shadow(0 0 12px rgba(255,255,255,0.3));
+}
+.preview-theme-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #aaa;
+  letter-spacing: 2px;
+}
+
+.preview-level-name {
+  font-size: 36px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 0 20px rgba(255,255,255,0.3);
+}
+
+.preview-info {
+  display: flex;
+  gap: 32px;
+  margin: 8px 0;
+}
+.preview-difficulty, .preview-target {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.diff-label, .target-label {
+  font-size: 11px;
+  color: #888;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.diff-stars {
+  font-size: 20px;
+  letter-spacing: 2px;
+}
+.target-value {
+  font-size: 28px;
+  font-weight: 900;
+  color: #a8e063;
+}
+
+.preview-fruits {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 12px 20px;
+  max-width: 360px;
+  width: 100%;
+}
+.preview-fruits-title {
+  font-size: 11px;
+  color: #888;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  text-align: center;
+}
+.preview-fruit-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.preview-fruit-item:last-child {
+  border-bottom: none;
+}
+.preview-fruit-icon {
+  font-size: 24px;
+  width: 32px;
+  text-align: center;
+}
+.preview-fruit-name {
+  flex: 1;
+  font-size: 14px;
+  color: #ccc;
+}
+.preview-fruit-score {
+  font-size: 14px;
+  font-weight: 700;
+}
+.preview-fruit-score.fruit-slow { color: #a8e063; }
+.preview-fruit-score.fruit-medium { color: #ffd700; }
+.preview-fruit-score.fruit-fast { color: #ff6b6b; }
+
+.btn-large {
+  padding: 14px 48px;
+  font-size: 20px;
+  margin-top: 8px;
+}

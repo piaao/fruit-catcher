@@ -32,11 +32,12 @@ window.addEventListener('resize', () => { resizeCanvas(); if (bgParticles.length
 resizeCanvas();
 
 const overlays = {
-  start: document.getElementById('startScreen'),
-  win:   document.getElementById('winScreen'),
-  lose:  document.getElementById('loseScreen'),
-  clear: document.getElementById('clearScreen'),
-  pause: document.getElementById('pauseScreen'),
+  start:  document.getElementById('startScreen'),
+  win:    document.getElementById('winScreen'),
+  lose:   document.getElementById('loseScreen'),
+  clear:  document.getElementById('clearScreen'),
+  pause:  document.getElementById('pauseScreen'),
+  preview: document.getElementById('levelPreviewScreen'),
 };
 
 // ==================== 游戏状态 ====================
@@ -88,21 +89,24 @@ document.getElementById('btnStart').addEventListener('click', () => {
   level = 0;
   stats.maxLevelCleared = 0;
   unlockedAch.clear();
-  hideAllOverlays();
-  beginRound();
+  showLevelPreview();
 });
 document.getElementById('btnNext').addEventListener('click', () => {
-  hideAllOverlays();
   level++;
-  beginRound();
+  showLevelPreview();
 });
 document.getElementById('btnRetry').addEventListener('click', () => {
-  hideAllOverlays();
-  beginRound();
+  showLevelPreview();
 });
 document.getElementById('btnRestart1').addEventListener('click', backToStart);
 document.getElementById('btnRestart2').addEventListener('click', backToStart);
 document.getElementById('btnRestart3').addEventListener('click', backToStart);
+
+// 关卡预览开始按钮
+document.getElementById('btnStartLevel').addEventListener('click', () => {
+  hideAllOverlays();
+  beginRound();
+});
 
 // ---- 暂停功能 ----
 document.getElementById('btnResume').addEventListener('click', resumeGame);
@@ -168,6 +172,41 @@ function backToStart() {
   itemBar.classList.remove('active');
   clearAllItemEffects();
   if (typeof stopBGM === 'function') stopBGM();
+}
+
+// ==================== 关卡预览 ====================
+function showLevelPreview() {
+  const lvl = LEVELS[level];
+  const theme = getCurrentTheme();
+
+  // 设置主题信息
+  document.getElementById('previewThemeEmoji').textContent = theme.emoji;
+  document.getElementById('previewThemeName').textContent = theme.name + ' · 第' + (level + 1) + '关';
+  document.getElementById('previewLevelName').textContent = lvl.name;
+  document.getElementById('previewTarget').textContent = lvl.target;
+
+  // 计算难度星级（基于速度和炸弹概率）
+  const speedScore = (lvl.baseSpeed - 104) / (300 - 104); // 0-1
+  const bombScore = (lvl.bombChance - 0.064) / (0.24 - 0.064); // 0-1
+  const totalScore = (speedScore + bombScore) / 2;
+  const stars = Math.ceil(totalScore * 5);
+  document.getElementById('previewStars').textContent = '★'.repeat(stars) + '☆'.repeat(5 - stars);
+  document.getElementById('previewStars').style.color = stars >= 4 ? '#ff6b6b' : stars >= 3 ? '#ffa500' : '#ffd700';
+
+  // 生成水果列表
+  const fruits = theme.fruits;
+  const fruitsHtml = fruits.map(f => {
+    const speedClass = f.speedMult >= 2.5 ? 'fruit-fast' : f.speedMult >= 2.0 ? 'fruit-medium' : 'fruit-slow';
+    return `<div class="preview-fruit-item">
+      <span class="preview-fruit-icon">${f.emoji}</span>
+      <span class="preview-fruit-name">${f.name}</span>
+      <span class="preview-fruit-score ${speedClass}">${f.score}分</span>
+    </div>`;
+  }).join('');
+  document.getElementById('previewFruits').innerHTML = '<div class="preview-fruits-title">本关水果</div>' + fruitsHtml;
+
+  hideAllOverlays();
+  showOverlay('preview');
 }
 
 // ==================== 主题系统 ====================

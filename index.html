@@ -127,6 +127,27 @@
       <button class="btn btn-primary" id="btnBackHome">返回首页</button>
     </div>
   </div>
+
+  <!-- 关卡预览界面 -->
+  <div class="overlay hidden" id="levelPreviewScreen">
+    <div class="preview-header">
+      <div class="preview-theme-emoji" id="previewThemeEmoji">🍑</div>
+      <div class="preview-theme-name" id="previewThemeName">核果园</div>
+    </div>
+    <div class="preview-level-name" id="previewLevelName">桃源初见</div>
+    <div class="preview-info">
+      <div class="preview-difficulty" id="previewDifficulty">
+        <span class="diff-label">难度</span>
+        <span class="diff-stars" id="previewStars">★☆☆☆☆</span>
+      </div>
+      <div class="preview-target">
+        <span class="target-label">目标</span>
+        <span class="target-value" id="previewTarget">66</span>
+      </div>
+    </div>
+    <div class="preview-fruits" id="previewFruits"></div>
+    <button class="btn btn-primary btn-large" id="btnStartLevel">开始挑战</button>
+  </div>
 </div>
 
 <!-- JS 模块（按依赖顺序加载） -->
