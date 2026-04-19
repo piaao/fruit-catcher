@@ -253,11 +253,12 @@ const BOMB = { name: '炸弹', emoji: '💣', score: -15, radius: 24, speedMult:
 
 // ---- 道具定义 ----
 const ITEMS = [
-  { id: 'magnet',    name: '磁铁',     icon: '🧲', color: '#3b82f6', desc: '自动吸附附近水果5秒',   duration: 5000 },
-  { id: 'slow',      name: '时间减缓', icon: '⏱️', color: '#f59e0b', desc: '全场速度降低50%持续5秒', duration: 5000 },
+  { id: 'magnet',    name: '磁铁',     icon: '🧲', color: '#3b82f6', desc: '大范围强吸附水果6秒',     duration: 6000 },
+  { id: 'slow',      name: '时间减缓', icon: '⏱️', color: '#f59e0b', desc: '全场速度降低50%持续5秒',  duration: 5000 },
   { id: 'shield',    name: '护盾',     icon: '🛡️', color: '#10b981', desc: '免疫下一次炸弹伤害',      duration: 0 },
   { id: 'double',    name: '双倍得分', icon: '✖️2', color: '#ef4444', desc: '得分翻倍持续8秒',         duration: 8000 },
   { id: 'addtime',   name: '增加计时', icon: '⏰', color: '#a78bfa', desc: '增加5秒倒计时',           duration: 0 },
+  { id: 'radar',     name: '透视标记', icon: '🔮', color: '#ec4899', desc: '高亮显示水果掉落轨迹5秒', duration: 5000 },
 ];
 
 // ---- 道具掉落参数 ----
@@ -318,7 +319,7 @@ function getFruitCount() {
 /** 获取当前可用的道具池（按主题渐进解锁） */
 function getCurrentItemPool() {
   const themeIndex = getThemeIndex();
-  // 主题0: 2个, 主题1: 3个, 主题2: 4个, 主题3-4: 5个(全部)
+  // 主题0: 2个, 主题1: 3个, 主题2: 4个, 主题3: 5个, 主题4: 6个(全部)
   const itemCount = Math.min(2 + themeIndex, ITEMS.length);
   return ITEMS.slice(0, itemCount);
 }

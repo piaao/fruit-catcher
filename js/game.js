@@ -770,19 +770,49 @@ function mainLoop(ts) {
     const speedMod = activeEffects.slow.active ? 0.5 : 1.0;
     const h = headPos();
 
-    // 磁铁效果：吸附水果
+    // 磁铁效果：大范围强吸附水果
     if (activeEffects.magnet.active) {
-      const magnetRange = 200;
+      const magnetRange = 350; // 增强：200 -> 350
+      const magnetStrength = 800; // 增强：500 -> 800
       projectiles.forEach(p => {
         if (p.eaten || p.isBomb) return;
         const d = dist(p.x, p.y, h.x, h.y);
         if (d < magnetRange && d > 1) {
-          const force = (1 - d / magnetRange) * 500;
+          const force = (1 - d / magnetRange) * magnetStrength;
           const ax = (h.x - p.x) / d * force;
           const ay = (h.y - p.y) / d * force;
           p.vx += ax * dt;
           p.vy += ay * dt;
         }
+      });
+    }
+
+    // 透视标记效果：显示水果掉落轨迹预测
+    if (activeEffects.radar.active) {
+      projectiles.forEach(p => {
+        if (p.eaten || p.isBomb) return;
+        // 预测水果落点（基于当前速度和方向）
+        const predictTime = 1.5; // 预测1.5秒后的位置
+        const predX = p.x + p.vx * predictTime;
+        const predY = p.y + p.vy * predictTime;
+
+        ctx.save();
+        ctx.globalAlpha = 0.6 + Math.sin(performance.now() / 200) * 0.2;
+        ctx.strokeStyle = p.def.score >= 15 ? '#ff6b6b' : p.def.score >= 10 ? '#ffd700' : '#a8e063';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.arc(predX, predY, p.def.radius + 5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 绘制预测轨迹线
+        ctx.globalAlpha = 0.4;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(predX, predY);
+        ctx.stroke();
+        ctx.restore();
       });
     }
 
@@ -939,23 +969,47 @@ function render() {
   // 主题背景
   drawThemeBackground();
 
-  // 磁铁效果范围指示
+  // 磁铁效果范围指示（大范围）
   if (activeEffects.magnet.active && state === 'playing') {
     const h = headPos();
-    const magnetRatio = activeEffects.magnet.timer / 5000;
+    const magnetRatio = activeEffects.magnet.timer / 6000;
     ctx.save();
     ctx.beginPath();
-    ctx.arc(h.x, h.y, 200, 0, Math.PI * 2);
+    ctx.arc(h.x, h.y, 350, 0, Math.PI * 2);
     ctx.strokeStyle = 'rgba(59,130,246,' + (0.15 + Math.sin(performance.now() / 300) * 0.1) + ')';
     ctx.lineWidth = 2;
     ctx.setLineDash([8, 8]);
     ctx.stroke();
     ctx.setLineDash([]);
-    const mg = ctx.createRadialGradient(h.x, h.y, 0, h.x, h.y, 200);
-    mg.addColorStop(0, 'rgba(59,130,246,' + (0.05 * magnetRatio) + ')');
+    const mg = ctx.createRadialGradient(h.x, h.y, 0, h.x, h.y, 350);
+    mg.addColorStop(0, 'rgba(59,130,246,' + (0.08 * magnetRatio) + ')');
     mg.addColorStop(1, 'rgba(59,130,246,0)');
     ctx.fillStyle = mg;
     ctx.fill();
+    ctx.restore();
+  }
+
+  // 透视标记效果指示
+  if (activeEffects.radar.active && state === 'playing') {
+    const h = headPos();
+    const radarRatio = activeEffects.radar.timer / 5000;
+    ctx.save();
+    ctx.globalAlpha = radarRatio * (0.5 + Math.sin(performance.now() / 150) * 0.3);
+    ctx.strokeStyle = '#ec4899';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6, 6]);
+    ctx.beginPath();
+    ctx.arc(h.x, h.y, 280, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 绘制扫描线效果
+    const angle = (performance.now() / 500) % (Math.PI * 2);
+    ctx.beginPath();
+    ctx.moveTo(h.x, h.y);
+    ctx.lineTo(h.x + Math.cos(angle) * 280, h.y + Math.sin(angle) * 280);
+    ctx.strokeStyle = 'rgba(236,72,153,0.5)';
+    ctx.stroke();
     ctx.restore();
   }
 
@@ -1083,10 +1137,11 @@ function render() {
   if (state === 'playing') {
     let effectY = 80;
     const effectList = [];
-    if (activeEffects.magnet.active) effectList.push({ icon: '🧲', name: '磁铁', timer: activeEffects.magnet.timer, max: 5000, color: '#3b82f6' });
+    if (activeEffects.magnet.active) effectList.push({ icon: '🧲', name: '磁铁', timer: activeEffects.magnet.timer, max: 6000, color: '#3b82f6' });
     if (activeEffects.slow.active) effectList.push({ icon: '⏱️', name: '减速', timer: activeEffects.slow.timer, max: 5000, color: '#f59e0b' });
     if (activeEffects.shield.active) effectList.push({ icon: '🛡️', name: '护盾', timer: -1, max: 1, color: '#10b981' });
     if (activeEffects.double.active) effectList.push({ icon: '✖️2', name: '双倍', timer: activeEffects.double.timer, max: 8000, color: '#ef4444' });
+    if (activeEffects.radar.active) effectList.push({ icon: '🔮', name: '透视', timer: activeEffects.radar.timer, max: 5000, color: '#ec4899' });
 
     effectList.forEach(ef => {
       ctx.save();
