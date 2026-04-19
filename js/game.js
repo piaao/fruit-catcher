@@ -635,9 +635,18 @@ function endRound() {
       setTimeout(playWinSound, 600);
       document.getElementById('clearMsg').textContent = '🏆 全关通关！';
       document.getElementById('clearDetail').innerHTML =
-        '<div class="result-summary">用时 <b style="color:#fff">' + elapsed.toFixed(1) + '秒</b></div>' +
+        '<div class="result-section">' +
+        '<div class="result-section-title">🎯 本关得分</div>' +
+        '<div class="result-row"><span class="result-label">目标</span><span class="result-value">' + lvl.target + '</span></div>' +
+        '<div class="result-row"><span class="result-label">实际</span><span class="result-value" style="color:#a8e063">+' + (score - lvl.target) + '</span></div>' +
+        '</div>' +
+        '<div class="result-section">' +
+        '<div class="result-section-title">⏱️ 用时评价</div>' +
+        '<div class="result-row"><span class="result-label">用时</span><span class="result-value">' + elapsed.toFixed(1) + 's</span></div>' +
+        '<div class="result-row"><span class="result-label">剩余</span><span class="result-value">' + timeLeft.toFixed(1) + 's</span></div>' +
+        '</div>' +
         '<div class="result-rank" style="background:' + rankBg + ';color:' + rankColor + '">' + rank + '</div>' +
-        '<p style="margin-top:12px">你已通过全部 ' + LEVELS.length + ' 关，征服了所有五大主题！你是真正的水果之王！</p>';
+        '<p style="margin-top:14px;color:#888;font-size:13px">你已通过全部 ' + LEVELS.length + ' 关，征服了所有五大主题！</p>';
       showOverlay('clear');
     } else {
       playWinSound();
@@ -651,14 +660,18 @@ function endRound() {
 
       document.getElementById('winMsg').textContent = '第 ' + (level + 1) + ' 关完成！';
       document.getElementById('winDetail').innerHTML =
-        '<div class="result-summary">' + currentTheme.emoji + ' ' + lvl.name + '</div>' +
-        '<div class="result-stats">' +
-        '<div><span class="stat-label">目标</span><span class="stat-val">' + lvl.target + '</span></div>' +
-        '<div><span class="stat-label">得分</span><span class="stat-val" style="color:#a8e063">+' + (score - lvl.target) + '</span></div>' +
-        '<div><span class="stat-label">用时</span><span class="stat-val">' + elapsed.toFixed(1) + 's</span></div>' +
+        '<div class="result-section">' +
+        '<div class="result-section-title">🎯 本关得分</div>' +
+        '<div class="result-row"><span class="result-label">目标</span><span class="result-value">' + lvl.target + '</span></div>' +
+        '<div class="result-row"><span class="result-label">实际</span><span class="result-value" style="color:#a8e063">+' + (score - lvl.target) + '</span></div>' +
+        '</div>' +
+        '<div class="result-section">' +
+        '<div class="result-section-title">⏱️ 用时评价</div>' +
+        '<div class="result-row"><span class="result-label">用时</span><span class="result-value">' + elapsed.toFixed(1) + 's</span></div>' +
+        '<div class="result-row"><span class="result-label">剩余</span><span class="result-value">' + timeLeft.toFixed(1) + 's</span></div>' +
         '</div>' +
         '<div class="result-rank" style="background:' + rankBg + ';color:' + rankColor + '">' + rank + '</div>' +
-        '<p style="margin-top:10px;color:#888;font-size:13px">' + (score - lvl.target) + ' 分超额 · 剩余时间 ' + timeLeft.toFixed(1) + 's' + extraMsg + '</p>';
+        '<p style="margin-top:10px;color:#888;font-size:13px">评价 = 剩余时间 ≥20s=S 15s=A 10s=B 5s=C D' + extraMsg + '</p>';
       showOverlay('win');
     }
   } else {
@@ -666,13 +679,17 @@ function endRound() {
     const remaining = ROUND_TIME - elapsed;
     document.getElementById('loseMsg').textContent = '第 ' + (level + 1) + ' 关失败';
     document.getElementById('loseDetail').innerHTML =
-      '<div class="result-summary">' + currentTheme.emoji + ' ' + lvl.name + '</div>' +
-      '<div class="result-stats">' +
-      '<div><span class="stat-label">目标</span><span class="stat-val">' + lvl.target + '</span></div>' +
-      '<div><span class="stat-label">得分</span><span class="stat-val" style="color:#ff6b6b">-' + (lvl.target - score) + '</span></div>' +
-      '<div><span class="stat-label">用时</span><span class="stat-val">' + elapsed.toFixed(1) + 's</span></div>' +
+      '<div class="result-section">' +
+      '<div class="result-section-title">🎯 本关得分</div>' +
+      '<div class="result-row"><span class="result-label">目标</span><span class="result-value">' + lvl.target + '</span></div>' +
+      '<div class="result-row"><span class="result-label">实际</span><span class="result-value" style="color:#ff6b6b">-' + (lvl.target - score) + '</span></div>' +
       '</div>' +
-      '<p style="margin-top:10px;color:#888;font-size:13px">还差 ' + (lvl.target - score) + ' 分，加油！</p>';
+      '<div class="result-section">' +
+      '<div class="result-section-title">⏱️ 用时</div>' +
+      '<div class="result-row"><span class="result-label">用时</span><span class="result-value">' + elapsed.toFixed(1) + 's</span></div>' +
+      '<div class="result-row"><span class="result-label">剩余</span><span class="result-value">' + remaining.toFixed(1) + 's</span></div>' +
+      '</div>' +
+      '<p style="margin-top:14px;color:#888;font-size:13px">还差 ' + (lvl.target - score) + ' 分，加油！</p>';
     showOverlay('lose');
   }
 
