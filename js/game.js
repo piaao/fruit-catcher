@@ -197,8 +197,8 @@ function showLevelPreview() {
   document.getElementById('previewStars').textContent = '★'.repeat(stars) + '☆'.repeat(5 - stars);
   document.getElementById('previewStars').style.color = stars >= 4 ? '#ff6b6b' : stars >= 3 ? '#ffa500' : '#ffd700';
 
-  // 生成水果列表 + NEW 标记
-  const fruits = theme.fruits;
+  // 生成水果列表（渐进式，使用限制后的水果池）
+  const fruits = getCurrentFruitPool();
   const fruitsHtml = fruits.map(f => {
     const speedClass = f.speedMult >= 2.5 ? 'fruit-fast' : f.speedMult >= 2.0 ? 'fruit-medium' : 'fruit-slow';
     const isNew = !seenFruits.has(f.name);
@@ -210,10 +210,11 @@ function showLevelPreview() {
       <span class="preview-fruit-score ${speedClass}">${f.score}分</span>
     </div>`;
   }).join('');
-  document.getElementById('previewFruits').innerHTML = '<div class="preview-section-title">🍑 本关水果</div>' + fruitsHtml;
+  document.getElementById('previewFruits').innerHTML = '<div class="preview-section-title">🍑 本关水果（' + fruits.length + '/' + theme.fruits.length + '）</div>' + fruitsHtml;
 
-  // 生成道具列表 + NEW 标记
-  const itemsHtml = ITEMS.map(item => {
+  // 生成道具列表（按主题渐进解锁）
+  const items = getCurrentItemPool();
+  const itemsHtml = items.map(item => {
     const isNew = !seenItems.has(item.id);
     seenItems.add(item.id);
     return `<div class="preview-item-item">
@@ -223,7 +224,7 @@ function showLevelPreview() {
       <span class="preview-item-desc">${item.desc}</span>
     </div>`;
   }).join('');
-  document.getElementById('previewItems').innerHTML = '<div class="preview-section-title">🎁 道具一览</div>' + itemsHtml;
+  document.getElementById('previewItems').innerHTML = '<div class="preview-section-title">🎁 本关道具（' + items.length + '/' + ITEMS.length + '）</div>' + itemsHtml;
 
   hideAllOverlays();
   showOverlay('preview');
@@ -557,7 +558,8 @@ function beginRound() {
   // 初始化主题
   initTheme();
 
-  // 每关开始清空道具栏，清除所有效果
+  // 初始化当前关卡的道具池（渐进式）
+  currentLevelItems = getCurrentItemPool();
   resetItemBag();
   clearAllItemEffects();
 

@@ -280,9 +280,53 @@ function getCurrentTheme() {
   return THEMES.find(t => level >= t.startLevel && level <= t.endLevel) || THEMES[0];
 }
 
-/** 获取当前主题水果池 */
+/** 获取当前主题索引（0-4） */
+function getThemeIndex() {
+  return Math.floor(level / 10);
+}
+
+/** 获取当前关卡在主题内的索引（0-9） */
+function getLevelInTheme() {
+  return level % 10;
+}
+
+/** 获取当前关卡的水果池（渐进式：前两关4个，后面每关+1） */
 function getCurrentFruitPool() {
-  return getCurrentTheme().fruits;
+  const theme = getCurrentTheme();
+  const levelInTheme = getLevelInTheme();
+
+  // 每个主题前两关4个，后面每关增加1个，最多8个
+  let count = 4;
+  if (levelInTheme >= 2) {
+    count = Math.min(4 + (levelInTheme - 2), theme.fruits.length);
+  }
+
+  return theme.fruits.slice(0, count);
+}
+
+/** 获取当前关卡的水果数量 */
+function getFruitCount() {
+  const theme = getCurrentTheme();
+  const levelInTheme = getLevelInTheme();
+  let count = 4;
+  if (levelInTheme >= 2) {
+    count = Math.min(4 + (levelInTheme - 2), theme.fruits.length);
+  }
+  return count;
+}
+
+/** 获取当前可用的道具池（按主题渐进解锁） */
+function getCurrentItemPool() {
+  const themeIndex = getThemeIndex();
+  // 主题0: 2个, 主题1: 3个, 主题2: 4个, 主题3-4: 5个(全部)
+  const itemCount = Math.min(2 + themeIndex, ITEMS.length);
+  return ITEMS.slice(0, itemCount);
+}
+
+/** 获取当前可用的道具数量 */
+function getItemCount() {
+  const themeIndex = getThemeIndex();
+  return Math.min(2 + themeIndex, ITEMS.length);
 }
 
 /** 判断是否进入新主题（主题关第一关） */

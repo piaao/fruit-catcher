@@ -7,6 +7,9 @@
 let itemBag = {};
 ITEMS.forEach(it => itemBag[it.id] = 0);
 
+// 当前关卡可用的道具（渐进式）
+let currentLevelItems = [];
+
 // ---- 道具掉落物 ----
 let itemDrops = [];
 let itemSpawnTimer = 0;
@@ -34,7 +37,8 @@ function showItemHint(text) {
 function initItemBar() {
   const bar = document.getElementById('itemBar');
   bar.innerHTML = '';
-  ITEMS.forEach((it, i) => {
+  // 只显示当前关卡可用的道具
+  currentLevelItems.forEach((it, i) => {
     const slot = document.createElement('div');
     slot.className = 'item-slot empty';
     slot.id = 'slot-' + it.id;
@@ -47,9 +51,11 @@ function initItemBar() {
 }
 
 function updateItemBarUI() {
-  ITEMS.forEach(it => {
+  // 只更新当前关卡可用的道具
+  currentLevelItems.forEach(it => {
     const slot = document.getElementById('slot-' + it.id);
     const countEl = document.getElementById('count-' + it.id);
+    if (!slot || !countEl) return;
     const c = itemBag[it.id];
     countEl.textContent = c;
     if (c > 0) {
@@ -63,7 +69,8 @@ function updateItemBarUI() {
 /* ---- 生成道具掉落物 ---- */
 function spawnItemDrop() {
   if (itemDrops.length >= ITEM_MAX_ON_FIELD) return;
-  const def = ITEMS[Math.floor(Math.random() * ITEMS.length)];
+  if (currentLevelItems.length === 0) return; // 没有可用道具
+  const def = currentLevelItems[Math.floor(Math.random() * currentLevelItems.length)];
   const side = Math.floor(Math.random() * 4);
   const m = 50;
   let sx, sy;
@@ -89,7 +96,8 @@ function spawnItemDrop() {
 /* ---- 使用道具 ---- */
 function useItem(slotIndex) {
   if (state !== 'playing') return;
-  const def = ITEMS[slotIndex];
+  // 使用当前关卡可用道具的索引
+  const def = currentLevelItems[slotIndex];
   if (!def || itemBag[def.id] <= 0) return;
 
   itemBag[def.id]--;
@@ -155,7 +163,8 @@ function clearAllItemEffects() {
 
 /** 重置道具栏 */
 function resetItemBag() {
-  ITEMS.forEach(it => itemBag[it.id] = 0);
+  // 只重置当前关卡可用的道具
+  currentLevelItems.forEach(it => itemBag[it.id] = 0);
   updateItemBarUI();
 }
 
