@@ -79,6 +79,7 @@ canvas {
   text-align: center;
   pointer-events: none;
   z-index: 11;
+  transition: text-shadow 0.2s, transform 0.1s;
 }
 
 @keyframes pulse { from { opacity: 1; } to { opacity: 0.4; } }
@@ -177,6 +178,11 @@ canvas {
 .btn-secondary { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; }
 .btn-success { background: linear-gradient(135deg, #56ab2f, #a8e063); color: #fff; }
 .btn-danger  { background: linear-gradient(135deg, #ff416c, #ff4b2b); color: #fff; }
+.btn-small {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 20px;
+}
 
 /* ---- 图例 ---- */
 .fruit-legend {
@@ -448,6 +454,105 @@ canvas {
 @keyframes btnSlideIn {
   0% { opacity: 0; transform: translateY(30px); }
   100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================================
+   设置面板
+   ============================================================ */
+.settings-panel {
+  max-width: 400px;
+  text-align: center;
+}
+
+.settings-panel h2 {
+  color: #fff;
+  margin-bottom: 20px;
+  font-size: 24px;
+}
+
+.settings-section {
+  background: rgba(255,255,255,0.05);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.settings-section h3 {
+  color: #888;
+  font-size: 14px;
+  margin-bottom: 12px;
+  text-align: left;
+}
+
+.settings-item {
+  margin-bottom: 14px;
+}
+
+.settings-item:last-child {
+  margin-bottom: 0;
+}
+
+.settings-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #ccc;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.settings-value {
+  color: #a8e063;
+  font-weight: 600;
+  min-width: 45px;
+  text-align: right;
+}
+
+.settings-slider {
+  width: 100%;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+.settings-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #a8e063;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.settings-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.settings-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #a8e063;
+  cursor: pointer;
+  border: none;
+}
+
+.settings-hint {
+  color: #666;
+  font-size: 11px;
+  margin-top: 8px;
+  text-align: left;
+}
+
+.btn-small {
+  padding: 8px 16px;
+  font-size: 13px;
 }
 
 /* 失败界面暗红色调 */
@@ -741,6 +846,20 @@ canvas {
   padding: 12px 20px;
   max-width: 360px;
   width: 100%;
+  max-height: 220px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.2) transparent;
+}
+.preview-fruits::-webkit-scrollbar {
+  width: 6px;
+}
+.preview-fruits::-webkit-scrollbar-track {
+  background: transparent;
+}
+.preview-fruits::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.2);
+  border-radius: 3px;
 }
 .preview-fruits-title {
   font-size: 11px;
@@ -786,6 +905,20 @@ canvas {
   padding: 12px 20px;
   max-width: 360px;
   width: 100%;
+  max-height: 180px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.2) transparent;
+}
+.preview-items::-webkit-scrollbar {
+  width: 6px;
+}
+.preview-items::-webkit-scrollbar-track {
+  background: transparent;
+}
+.preview-items::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.2);
+  border-radius: 3px;
 }
 .preview-item-item {
   display: flex;
@@ -1050,6 +1183,14 @@ canvas {
   font-weight: 900;
   line-height: 1;
   margin: 2px 0;
+}
+
+.level-best-score {
+  font-size: 9px;
+  color: #a8e063;
+  font-weight: 600;
+  margin: 1px 0;
+  opacity: 0.9;
 }
 
 /* ---- 翻页按钮 ---- */

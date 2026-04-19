@@ -61,6 +61,7 @@ let seenItems = new Set();
 let currentSelectTheme = 0; // 当前选择的主题索引（0-4）
 let passedLevels = [];      // 已通过的关卡索引数组
 let levelStars = {};        // 关卡星级 { levelIdx: stars (1-5) }
+let levelBestScores = {};  // 关卡最佳成绩 { levelIdx: bestScore }
 
 // ---- 秘籍状态 ----
 let cheatAllLevels = false;  // 全关解锁
@@ -121,6 +122,77 @@ document.getElementById('btnStart').addEventListener('click', () => {
   loadProgress(); // 加载已保存的进度
   showLevelSelect(); // 打开关卡选择界面
 });
+
+// 设置按钮
+document.getElementById('btnSettings').addEventListener('click', () => {
+  if (typeof playClickSound === 'function') playClickSound();
+  showOverlay('settings');
+});
+
+// 关闭设置按钮
+document.getElementById('btnCloseSettings').addEventListener('click', () => {
+  if (typeof playClickSound === 'function') playClickSound();
+  hideAllOverlays();
+});
+
+// 音乐音量滑块
+document.getElementById('bgmVolume').addEventListener('input', e => {
+  const vol = parseInt(e.target.value);
+  document.getElementById('bgmVolumeValue').textContent = vol + '%';
+  if (bgmGainNode) {
+    bgmGainNode.gain.value = vol / 100;
+  }
+  localStorage.setItem('fc_bgmVol', vol);
+});
+
+// 音效音量滑块
+document.getElementById('sfxVolume').addEventListener('input', e => {
+  const vol = parseInt(e.target.value);
+  document.getElementById('sfxVolumeValue').textContent = vol + '%';
+  localStorage.setItem('fc_sfxVol', vol);
+});
+
+// 音效测试按钮
+document.getElementById('btnTestSfx').addEventListener('click', () => {
+  ensureAudio();
+  if (typeof playEatSound === 'function') {
+    playEatSound({ weight: 1.5 }, false);
+  }
+});
+
+// 重置进度按钮
+document.getElementById('btnResetProgress').addEventListener('click', () => {
+  if (confirm('确定要重置所有游戏进度吗？\n这将清空所有关卡记录、成就和最佳成绩！')) {
+    localStorage.removeItem('fc_progress');
+    localStorage.removeItem('fc_achievements');
+    passedLevels = [];
+    levelStars = {};
+    levelBestScores = {};
+    unlockedAch = new Set();
+    stats = { maxLevelCleared: -1 };
+    if (typeof playClickSound === 'function') playClickSound();
+    hideAllOverlays();
+    alert('进度已重置！');
+  }
+});
+
+// 加载保存的音量设置
+function loadVolumeSettings() {
+  const savedBgmVol = localStorage.getItem('fc_bgmVol');
+  const savedSfxVol = localStorage.getItem('fc_sfxVol');
+  if (savedBgmVol !== null) {
+    const vol = parseInt(savedBgmVol);
+    document.getElementById('bgmVolume').value = vol;
+    document.getElementById('bgmVolumeValue').textContent = vol + '%';
+    if (bgmGainNode) bgmGainNode.gain.value = vol / 100;
+  }
+  if (savedSfxVol !== null) {
+    const vol = parseInt(savedSfxVol);
+    document.getElementById('sfxVolume').value = vol;
+    document.getElementById('sfxVolumeValue').textContent = vol + '%';
+  }
+}
+
 document.getElementById('btnNext').addEventListener('click', () => {
   if (typeof playClickSound === 'function') playClickSound();
   level++;
@@ -129,6 +201,13 @@ document.getElementById('btnNext').addEventListener('click', () => {
 document.getElementById('btnRetry').addEventListener('click', () => {
   if (typeof playClickSound === 'function') playClickSound();
   showLevelPreview();
+});
+
+// 快速重试按钮 - 直接开始当前关卡
+document.getElementById('btnRetryDirect').addEventListener('click', () => {
+  if (typeof playClickSound === 'function') playClickSound();
+  hideAllOverlays();
+  beginRound();
 });
 document.getElementById('btnRestart1').addEventListener('click', () => {
   if (typeof playClickSound === 'function') playClickSound();
@@ -261,8 +340,8 @@ function showLevelPreview() {
   document.getElementById('previewStars').textContent = '★'.repeat(stars) + '☆'.repeat(5 - stars);
   document.getElementById('previewStars').style.color = stars >= 4 ? '#ff6b6b' : stars >= 3 ? '#ffa500' : '#ffd700';
 
-  // 生成水果列表（按分数从低到高排列 + NEW 标记）
-  const fruits = getCurrentFruitPool().sort((a, b) => a.score - b.score);
+  // 生成水果列表（按分数从高到低排列 + NEW 标记）
+  const fruits = getCurrentFruitPool().sort((a, b) => b.score - a.score);
   const fruitsHtml = fruits.map(f => {
     const speedClass = f.speedMult >= 2.5 ? 'fruit-fast' : f.speedMult >= 2.0 ? 'fruit-medium' : 'fruit-slow';
     const isNew = !seenFruits.has(f.name);
@@ -274,9 +353,9 @@ function showLevelPreview() {
       <span class="preview-fruit-score ${speedClass}">${f.score}分</span>
     </div>`;
   }).join('');
-  document.getElementById('previewFruits').innerHTML = '<div class="preview-section-title">🍑 本关水果（' + fruits.length + '/' + theme.fruits.length + '）</div>' + fruitsHtml;
+  document.getElementById('previewFruits').innerHTML = '<div class="preview-section-title">🍑 本关水果（共' + fruits.length + '种）</div>' + fruitsHtml;
 
-  // 生成道具列表（按主题渐进解锁）
+  // 生成道具列表（按出现顺序）
   const items = getCurrentItemPool();
   const itemsHtml = items.map(item => {
     const isNew = !seenItems.has(item.id);
@@ -288,7 +367,7 @@ function showLevelPreview() {
       <span class="preview-item-desc">${item.desc}</span>
     </div>`;
   }).join('');
-  document.getElementById('previewItems').innerHTML = '<div class="preview-section-title">🎁 本关道具（' + items.length + '/' + ITEMS.length + '）</div>' + itemsHtml;
+  document.getElementById('previewItems').innerHTML = '<div class="preview-section-title">🎁 本关道具（共' + items.length + '种）</div>' + itemsHtml;
 
   hideAllOverlays();
   showOverlay('preview');
@@ -695,10 +774,22 @@ function endRound() {
   clearAllItemEffects();
 
   if (score >= lvl.target) {
+    const prevMaxLevel = stats.maxLevelCleared;
     markLevelPassed(level); // 保存通关进度
     if (level + 1 > stats.maxLevelCleared) stats.maxLevelCleared = level + 1;
     if (stats.roundBombs === 0) stats.noBombWin = true;
     if (elapsed <= 30) stats.speedClear = true;
+
+    // 检测主题通关（第10、20、30、40、50关）
+    const themeEnds = [9, 19, 29, 39, 49];
+    if (themeEnds.includes(level) && level > prevMaxLevel) {
+      const themeIdx = themeEnds.indexOf(level);
+      const theme = THEMES[themeIdx];
+      // 主题通关庆祝效果
+      setTimeout(() => {
+        createThemeClearCelebration(theme, level + 1);
+      }, 500);
+    }
 
     // 计算用时评级
     const timeLeft = ROUND_TIME - elapsed;
@@ -712,8 +803,12 @@ function endRound() {
     // 保存星级（取最高）
     if (!levelStars[level] || levelStars[level] < stars) {
       levelStars[level] = stars;
-      saveProgress();
     }
+    // 保存最佳成绩
+    if (!levelBestScores[level] || score > levelBestScores[level]) {
+      levelBestScores[level] = score;
+    }
+    saveProgress();
 
     if (level >= LEVELS.length - 1) {
       // 全通关 - 使用增强音效
@@ -758,6 +853,13 @@ function endRound() {
         extraMsg = '<br>🌟 即将进入新主题：' + nextTheme.emoji + ' ' + nextTheme.name + '！';
       }
 
+      // 构建详细统计信息
+      const fruitStats = Object.entries(stats.roundFruits)
+        .sort((a, b) => b[1] - a[1])
+        .map(([name, count]) => '<div class="result-row"><span class="result-label">' + name + '</span><span class="result-value" style="color:#a8e063">×' + count + '</span></div>')
+        .slice(0, 5) // 最多显示5种水果
+        .join('');
+
       document.getElementById('winMsg').textContent = '第 ' + (level + 1) + ' 关完成！';
       document.getElementById('winDetail').innerHTML =
         '<div class="result-section result-section-full">' +
@@ -771,6 +873,7 @@ function endRound() {
         '<div class="result-row"><span class="result-label">剩余</span><span class="result-value">' + timeLeft.toFixed(1) + 's</span></div>' +
         '<div class="result-rank pulse-glow" style="background:' + rankBg + ';color:' + rankColor + '">' + rank + '</div>' +
         '</div>' +
+        (fruitStats ? '<div class="result-section result-section-full"><div class="result-section-title">🍑 水果统计</div>' + fruitStats + '</div>' : '') +
         '<p style="margin-top:10px;color:#888;font-size:13px">评价规则：剩余时间 ≥20s=S 15s=A 10s=B 5s=C D' + extraMsg + '</p>';
       showOverlay('win');
     }
@@ -958,6 +1061,68 @@ function checkComboMilestone(combo) {
     const colors = ['#ffd700', '#ff9ff3', '#4da6ff', '#ff6b6b'];
     triggerScreenEdgeFlash(colors[Math.min(level - 1, 3)] + '80');
   }
+}
+
+/** 主题通关庆祝效果 */
+function createThemeClearCelebration(theme, levelNum) {
+  // 播放主题通关音效
+  if (typeof playAchievementSound === 'function') playAchievementSound();
+  if (typeof playWinSoundEnhanced === 'function') playWinSoundEnhanced();
+
+  // 创建大量彩色粒子
+  createStardust('themeClearStardust');
+  createFireworks('themeClearFireworks');
+
+  // 屏幕边框主题色闪光
+  triggerScreenEdgeFlash(theme.player.accentColor + 'a0');
+
+  // 显示主题通关提示
+  const msg = document.createElement('div');
+  msg.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    font-size: 32px;
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 0 0 30px ${theme.player.accentColor};
+    z-index: 1000;
+    pointer-events: none;
+    animation: themeClearPop 2s ease-out forwards;
+  `;
+  msg.textContent = theme.emoji + ' ' + theme.name + ' 通关！';
+  document.body.appendChild(msg);
+
+  // 创建样式动画
+  if (!document.getElementById('themeClearStyle')) {
+    const style = document.createElement('style');
+    style.id = 'themeClearStyle';
+    style.textContent = `
+      @keyframes themeClearPop {
+        0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+        20% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+        40% { transform: translate(-50%, -50%) scale(1); }
+        80% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // 移除提示
+  setTimeout(() => {
+    msg.remove();
+  }, 2000);
+
+  // 显示成就提示
+  const themeAch = {
+    icon: theme.emoji,
+    name: theme.name + ' 通关',
+    desc: '成功通关第' + levelNum + '关！'
+  };
+  achQueue.push(themeAch);
+  if (!achShowing) showNextAch();
 }
 
 // ==================== 碰撞 ====================
@@ -1315,13 +1480,29 @@ function render() {
       ctx.shadowBlur = 0;
     }
 
-    // 绘制水果
+    // 绘制水果（带颜色底座）
+    const fruitColor = 'hsl(' + (currentTheme.bg.accentHue || 320) + ',50%,65%)';
+    ctx.beginPath();
+    ctx.arc(0, 0, p.def.radius, 0, Math.PI * 2);
+    ctx.fillStyle = fruitColor + '60';
+    ctx.fill();
+
+    // 绘制水果emoji
+    ctx.shadowColor = p.isBomb ? '#ff4400' : currentTheme.player.accentColor;
+    ctx.shadowBlur = p.isBomb ? 12 : 6;
     ctx.font = (p.def.radius * 1.7) + 'px serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.shadowColor = p.isBomb ? '#ff4400' : currentTheme.player.accentColor;
-    ctx.shadowBlur = p.isBomb ? 12 : 6;
     ctx.fillText(p.def.emoji, 0, 0);
+
+    // 绘制炸弹效果（红色闪烁边框）
+    if (p.isBomb) {
+      ctx.beginPath();
+      ctx.arc(0, 0, p.def.radius + 3, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,68,68,' + (0.5 + Math.sin(performance.now() / 100) * 0.3) + ')';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
 
     ctx.restore();
   });
@@ -1399,9 +1580,13 @@ function render() {
     const mult = combo >= 31 ? 3.0 : combo >= 21 ? 2.5 : combo >= 16 ? 2.0 : combo >= 11 ? 1.8 : combo >= 7 ? 1.5 : 1.2;
     const color = combo >= 31 ? '#ff3030' : combo >= 21 ? '#ff6600' : combo >= 16 ? '#ff8800' : combo >= 11 ? '#ffaa00' : '#ffd700';
     const fire = combo >= 31 ? '💥' : combo >= 21 ? '⚡' : combo >= 16 ? '🔥' : combo >= 11 ? '🔥' : '✨';
+    const scale = combo >= 31 ? 1.4 : combo >= 21 ? 1.25 : combo >= 16 ? 1.15 : 1.0;
     comboEl.innerHTML = fire + '<br>' + combo + '连击<br>x' + mult;
     comboEl.style.color = color;
+    comboEl.style.fontSize = (18 * scale) + 'px';
+    comboEl.style.textShadow = '0 0 20px ' + color + ', 0 0 40px ' + color;
     comboEl.style.opacity = Math.min(1, comboTimer * 2).toString();
+    comboEl.style.transform = 'scale(' + (1 + Math.sin(performance.now() / 100) * 0.05) + ')';
   } else {
     comboEl.innerHTML = '';
     comboEl.style.opacity = '0';
@@ -1511,15 +1696,18 @@ function loadProgress() {
       const data = JSON.parse(saved);
       passedLevels = data.levels || [];
       levelStars = data.stars || {};
+      levelBestScores = data.bestScores || {}; // 最佳成绩
       stats.maxLevelCleared = passedLevels.length > 0 ? Math.max(...passedLevels) : -1;
     } else {
       passedLevels = [];
       levelStars = {};
+      levelBestScores = {};
       stats.maxLevelCleared = -1;
     }
   } catch (e) {
     passedLevels = [];
     levelStars = {};
+    levelBestScores = {};
     stats.maxLevelCleared = -1;
   }
 }
@@ -1527,7 +1715,11 @@ function loadProgress() {
 /** 保存进度到 localStorage */
 function saveProgress() {
   try {
-    localStorage.setItem('fc_progress', JSON.stringify({ levels: passedLevels, stars: levelStars }));
+    localStorage.setItem('fc_progress', JSON.stringify({
+      levels: passedLevels,
+      stars: levelStars,
+      bestScores: levelBestScores
+    }));
   } catch (e) {
     console.warn('无法保存进度:', e);
   }
@@ -1585,19 +1777,25 @@ function renderLevelSelect() {
     else if (status === 'unlocked') statusIcon = '🔓';
     else statusIcon = '🔒';
 
-    // 评级显示（SABCD）
+    // 评级显示（SABCD）和最佳成绩
     let rankHtml = '';
+    let scoreHtml = '';
     if (status === 'passed' && levelStars[i]) {
       const s = levelStars[i];
       const ranks = ['D', 'C', 'B', 'A', 'S'];
       const rank = ranks[Math.min(Math.max(s - 1, 0), 4)];
       const rankColors = { S: '#ffd700', A: '#60d060', B: '#4da6ff', C: '#ffa500', D: '#888888' };
       rankHtml = '<span class="level-rank" style="color:' + rankColors[rank] + '">' + rank + '</span>';
+      // 显示最佳成绩
+      if (levelBestScores[i]) {
+        scoreHtml = '<span class="level-best-score">🏆 ' + levelBestScores[i] + '</span>';
+      }
     }
 
     card.innerHTML = '<span class="level-num">' + levelNum + '</span>' +
                      '<span class="level-name">' + lvl.name + '</span>' +
                      rankHtml +
+                     scoreHtml +
                      '<span class="level-status-icon">' + statusIcon + '</span>';
 
     if (status !== 'locked') {
@@ -1662,6 +1860,7 @@ document.getElementById('btnNextTheme').addEventListener('click', () => {
 // ==================== 初始化 & 启动 ====================
 initItemBar();
 updateItemBarUI();
+loadVolumeSettings(); // 加载音量设置
 
 lastTS = performance.now();
 requestAnimationFrame(mainLoop);

@@ -107,6 +107,44 @@
     </div>
 
     <button class="btn btn-primary" id="btnStart">开始游戏</button>
+    <button class="btn btn-secondary btn-small" id="btnSettings">⚙️ 设置</button>
+  </div>
+
+  <!-- 设置面板 -->
+  <div class="overlay hidden" id="settingsScreen">
+    <div class="overlay-content settings-panel">
+      <h2>⚙️ 游戏设置</h2>
+      <div class="settings-section">
+        <div class="settings-item">
+          <label class="settings-label">
+            <span>🎵 音乐音量</span>
+            <span class="settings-value" id="bgmVolumeValue">12%</span>
+          </label>
+          <input type="range" id="bgmVolume" min="0" max="100" value="12" class="settings-slider">
+        </div>
+        <div class="settings-item">
+          <label class="settings-label">
+            <span>🔊 音效音量</span>
+            <span class="settings-value" id="sfxVolumeValue">80%</span>
+          </label>
+          <input type="range" id="sfxVolume" min="0" max="100" value="80" class="settings-slider">
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-item">
+          <label class="settings-label">
+            <span>🎮 音效测试</span>
+          </label>
+          <button class="btn btn-small btn-secondary" id="btnTestSfx">🔊 播放测试</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h3>📊 数据管理</h3>
+        <button class="btn btn-danger btn-small" id="btnResetProgress">🗑️ 重置进度</button>
+        <p class="settings-hint">重置后所有关卡、成就将被清空，请谨慎操作！</p>
+      </div>
+      <button class="btn btn-primary" id="btnCloseSettings">✓ 关闭</button>
+    </div>
   </div>
 
   <!-- 过关界面 -->
@@ -132,7 +170,8 @@
       <h2 id="loseMsg"></h2>
       <p id="loseDetail"></p>
       <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
-        <button class="btn btn-danger" id="btnRetry">再试一次</button>
+        <button class="btn btn-danger" id="btnRetryDirect">⚡ 快速重试</button>
+        <button class="btn btn-secondary" id="btnRetry">再试一次</button>
         <button class="btn btn-secondary" id="btnBackHomeLose">返回首页</button>
       </div>
     </div>
