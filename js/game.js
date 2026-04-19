@@ -39,6 +39,7 @@ const overlays = {
   pause:   document.getElementById('pauseScreen'),
   preview: document.getElementById('levelPreviewScreen'),
   select:  document.getElementById('levelSelectScreen'),
+  settings: document.getElementById('settingsScreen'),
 };
 
 // ==================== 游戏状态 ====================
