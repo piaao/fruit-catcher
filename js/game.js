@@ -32,12 +32,13 @@ window.addEventListener('resize', () => { resizeCanvas(); if (bgParticles.length
 resizeCanvas();
 
 const overlays = {
-  start:  document.getElementById('startScreen'),
-  win:    document.getElementById('winScreen'),
-  lose:   document.getElementById('loseScreen'),
-  clear:  document.getElementById('clearScreen'),
-  pause:  document.getElementById('pauseScreen'),
+  start:   document.getElementById('startScreen'),
+  win:     document.getElementById('winScreen'),
+  lose:    document.getElementById('loseScreen'),
+  clear:   document.getElementById('clearScreen'),
+  pause:   document.getElementById('pauseScreen'),
   preview: document.getElementById('levelPreviewScreen'),
+  select:  document.getElementById('levelSelectScreen'),
 };
 
 // ==================== 游戏状态 ====================
@@ -55,6 +56,16 @@ let roundStartTime = 0;
 // 追踪已出现的水果和道具（用于 NEW 标记）
 let seenFruits = new Set();
 let seenItems = new Set();
+
+// ---- 关卡选择状态 ----
+let currentSelectTheme = 0; // 当前选择的主题索引（0-4）
+let passedLevels = [];      // 已通过的关卡索引数组
+let levelStars = {};        // 关卡星级 { levelIdx: stars (1-5) }
+
+// ---- 秘籍状态 ----
+let cheatAllLevels = false;  // 全关解锁
+let cheatStartBonus = false; // 初始+10分
+let cheatStartItem = false;  // 初始道具
 
 // ---- 主题状态 ----
 let currentTheme = THEMES[0];
@@ -88,12 +99,26 @@ canvas.addEventListener('mousemove', e => {
 });
 
 // ==================== 事件绑定 ====================
+
+// 秘籍开关事件
+document.getElementById('cheatAllLevels').addEventListener('change', e => {
+  cheatAllLevels = e.target.checked;
+  // 刷新关卡选择界面显示
+  if (document.getElementById('levelSelectScreen').classList.contains('hidden') === false) {
+    renderLevelSelect();
+  }
+});
+document.getElementById('cheatStartBonus').addEventListener('change', e => {
+  cheatStartBonus = e.target.checked;
+});
+document.getElementById('cheatStartItem').addEventListener('change', e => {
+  cheatStartItem = e.target.checked;
+});
+
 document.getElementById('btnStart').addEventListener('click', () => {
   ensureAudio();
-  level = 0;
-  stats.maxLevelCleared = 0;
-  unlockedAch.clear();
-  showLevelPreview();
+  loadProgress(); // 加载已保存的进度
+  showLevelSelect(); // 打开关卡选择界面
 });
 document.getElementById('btnNext').addEventListener('click', () => {
   level++;
@@ -103,13 +128,21 @@ document.getElementById('btnRetry').addEventListener('click', () => {
   showLevelPreview();
 });
 document.getElementById('btnRestart1').addEventListener('click', backToStart);
-document.getElementById('btnRestart2').addEventListener('click', backToStart);
 document.getElementById('btnRestart3').addEventListener('click', backToStart);
+// 新增：通关/失败界面返回首页按钮
+document.getElementById('btnBackHomeWin').addEventListener('click', backToStart);
+document.getElementById('btnBackHomeLose').addEventListener('click', backToStart);
+document.getElementById('btnBackHomeClear').addEventListener('click', backToStart);
 
 // 关卡预览开始按钮
 document.getElementById('btnStartLevel').addEventListener('click', () => {
   hideAllOverlays();
   beginRound();
+});
+
+// 关卡预览返回按钮
+document.getElementById('btnBackToSelect').addEventListener('click', () => {
+  showLevelSelect();
 });
 
 // ---- 暂停功能 ----
@@ -555,6 +588,12 @@ function beginRound() {
   roundStartTime = performance.now();
   resetRoundStats();
 
+  // 秘籍：初始+10分
+  if (cheatStartBonus) {
+    score += 10;
+    addFloatingText(CX, CY - 80, '+10 初始积分!', '#ffd700');
+  }
+
   // 初始化主题
   initTheme();
 
@@ -563,6 +602,13 @@ function beginRound() {
   initItemBar(); // 重新初始化道具栏（根据当前关卡的道具池）
   resetItemBag();
   clearAllItemEffects();
+
+  // 秘籍：初始随机道具
+  if (cheatStartItem && currentLevelItems.length > 0) {
+    const randomItem = currentLevelItems[Math.floor(Math.random() * currentLevelItems.length)];
+    addItemToBag(randomItem);
+    addFloatingText(CX, CY - 50, '🎁 ' + randomItem.name, '#a8e063');
+  }
 
   // 初始化水果统计
   const fruitPool = getCurrentFruitPool();
@@ -618,35 +664,42 @@ function endRound() {
   clearAllItemEffects();
 
   if (score >= lvl.target) {
+    markLevelPassed(level); // 保存通关进度
     if (level + 1 > stats.maxLevelCleared) stats.maxLevelCleared = level + 1;
     if (stats.roundBombs === 0) stats.noBombWin = true;
     if (elapsed <= 30) stats.speedClear = true;
 
     // 计算用时评级
     const timeLeft = ROUND_TIME - elapsed;
-    let rank, rankColor, rankBg;
-    if (timeLeft >= 20)      { rank = 'S'; rankColor = '#ffd700'; rankBg = 'linear-gradient(135deg, #ffd700, #ff8c00)'; }
-    else if (timeLeft >= 15) { rank = 'A'; rankColor = '#60d060'; rankBg = 'linear-gradient(135deg, #60d060, #40a040)'; }
-    else if (timeLeft >= 10) { rank = 'B'; rankColor = '#4da6ff'; rankBg = 'linear-gradient(135deg, #4da6ff, #2070c0)'; }
-    else if (timeLeft >= 5)  { rank = 'C'; rankColor = '#ffa500'; rankBg = 'linear-gradient(135deg, #ffa500, #cc8000)'; }
-    else                     { rank = 'D'; rankColor = '#888888'; rankBg = 'linear-gradient(135deg, #888, #555)'; }
+    let rank, rankColor, rankBg, stars;
+    if (timeLeft >= 20)      { rank = 'S'; stars = 5; rankColor = '#ffd700'; rankBg = 'linear-gradient(135deg, #ffd700, #ff8c00)'; }
+    else if (timeLeft >= 15) { rank = 'A'; stars = 4; rankColor = '#60d060'; rankBg = 'linear-gradient(135deg, #60d060, #40a040)'; }
+    else if (timeLeft >= 10) { rank = 'B'; stars = 3; rankColor = '#4da6ff'; rankBg = 'linear-gradient(135deg, #4da6ff, #2070c0)'; }
+    else if (timeLeft >= 5)  { rank = 'C'; stars = 2; rankColor = '#ffa500'; rankBg = 'linear-gradient(135deg, #ffa500, #cc8000)'; }
+    else                     { rank = 'D'; stars = 1; rankColor = '#888888'; rankBg = 'linear-gradient(135deg, #888, #555)'; }
+
+    // 保存星级（取最高）
+    if (!levelStars[level] || levelStars[level] < stars) {
+      levelStars[level] = stars;
+      saveProgress();
+    }
 
     if (level >= LEVELS.length - 1) {
       playWinSound();
       setTimeout(playWinSound, 600);
       document.getElementById('clearMsg').textContent = '🏆 全关通关！';
       document.getElementById('clearDetail').innerHTML =
-        '<div class="result-section">' +
+        '<div class="result-section result-section-full">' +
         '<div class="result-section-title">🎯 本关得分</div>' +
         '<div class="result-row"><span class="result-label">目标</span><span class="result-value">' + lvl.target + '</span></div>' +
         '<div class="result-row"><span class="result-label">实际</span><span class="result-value" style="color:#a8e063">+' + (score - lvl.target) + '</span></div>' +
         '</div>' +
-        '<div class="result-section">' +
-        '<div class="result-section-title">⏱️ 用时评价</div>' +
+        '<div class="result-section result-section-full">' +
+        '<div class="result-section-title">⭐ 关卡评价</div>' +
         '<div class="result-row"><span class="result-label">用时</span><span class="result-value">' + elapsed.toFixed(1) + 's</span></div>' +
         '<div class="result-row"><span class="result-label">剩余</span><span class="result-value">' + timeLeft.toFixed(1) + 's</span></div>' +
-        '</div>' +
         '<div class="result-rank" style="background:' + rankBg + ';color:' + rankColor + '">' + rank + '</div>' +
+        '</div>' +
         '<p style="margin-top:14px;color:#888;font-size:13px">你已通过全部 ' + LEVELS.length + ' 关，征服了所有五大主题！</p>';
       showOverlay('clear');
     } else {
@@ -661,18 +714,18 @@ function endRound() {
 
       document.getElementById('winMsg').textContent = '第 ' + (level + 1) + ' 关完成！';
       document.getElementById('winDetail').innerHTML =
-        '<div class="result-section">' +
+        '<div class="result-section result-section-full">' +
         '<div class="result-section-title">🎯 本关得分</div>' +
         '<div class="result-row"><span class="result-label">目标</span><span class="result-value">' + lvl.target + '</span></div>' +
         '<div class="result-row"><span class="result-label">实际</span><span class="result-value" style="color:#a8e063">+' + (score - lvl.target) + '</span></div>' +
         '</div>' +
-        '<div class="result-section">' +
-        '<div class="result-section-title">⏱️ 用时评价</div>' +
+        '<div class="result-section result-section-full">' +
+        '<div class="result-section-title">⭐ 关卡评价</div>' +
         '<div class="result-row"><span class="result-label">用时</span><span class="result-value">' + elapsed.toFixed(1) + 's</span></div>' +
         '<div class="result-row"><span class="result-label">剩余</span><span class="result-value">' + timeLeft.toFixed(1) + 's</span></div>' +
-        '</div>' +
         '<div class="result-rank" style="background:' + rankBg + ';color:' + rankColor + '">' + rank + '</div>' +
-        '<p style="margin-top:10px;color:#888;font-size:13px">评价 = 剩余时间 ≥20s=S 15s=A 10s=B 5s=C D' + extraMsg + '</p>';
+        '</div>' +
+        '<p style="margin-top:10px;color:#888;font-size:13px">评价规则：剩余时间 ≥20s=S 15s=A 10s=B 5s=C D' + extraMsg + '</p>';
       showOverlay('win');
     }
   } else {
@@ -1160,20 +1213,18 @@ function render() {
     ctx.restore();
   });
 
-  // 连击显示（7档）
+  // 连击显示（使用HTML元素）
+  const comboEl = document.getElementById('comboDisplay');
   if (combo >= 3 && comboTimer > 0 && state === 'playing') {
     const mult = combo >= 31 ? 3.0 : combo >= 21 ? 2.5 : combo >= 16 ? 2.0 : combo >= 11 ? 1.8 : combo >= 7 ? 1.5 : 1.2;
     const color = combo >= 31 ? '#ff3030' : combo >= 21 ? '#ff6600' : combo >= 16 ? '#ff8800' : combo >= 11 ? '#ffaa00' : '#ffd700';
-    const fire = combo >= 31 ? '💥' : combo >= 21 ? '⚡' : combo >= 16 ? '🔥🔥' : combo >= 11 ? '🔥' : '✨';
-
-    ctx.save();
-    ctx.globalAlpha = Math.min(1, comboTimer * 2);
-    ctx.font = 'bold 32px "Segoe UI"';
-    ctx.fillStyle = color;
-    ctx.shadowColor = color; ctx.shadowBlur = 20;
-    ctx.textAlign = 'center';
-    ctx.fillText(fire + ' ' + combo + ' 连击 x' + mult + '！', CX, 50);
-    ctx.restore();
+    const fire = combo >= 31 ? '💥' : combo >= 21 ? '⚡' : combo >= 16 ? '🔥' : combo >= 11 ? '🔥' : '✨';
+    comboEl.innerHTML = fire + '<br>' + combo + '连击<br>x' + mult;
+    comboEl.style.color = color;
+    comboEl.style.opacity = Math.min(1, comboTimer * 2).toString();
+  } else {
+    comboEl.innerHTML = '';
+    comboEl.style.opacity = '0';
   }
 
   // 活跃效果指示器
@@ -1269,6 +1320,151 @@ function render() {
     PLAYER.headAngle = Math.atan2(mouseY - PLAYER.y, mouseX - PLAYER.x);
   }
 }
+
+// ==================== 关卡选择界面 ====================
+
+/** 从 localStorage 加载进度 */
+function loadProgress() {
+  try {
+    const saved = localStorage.getItem('fc_progress');
+    if (saved) {
+      const data = JSON.parse(saved);
+      passedLevels = data.levels || [];
+      levelStars = data.stars || {};
+      stats.maxLevelCleared = passedLevels.length > 0 ? Math.max(...passedLevels) : -1;
+    } else {
+      passedLevels = [];
+      levelStars = {};
+      stats.maxLevelCleared = -1;
+    }
+  } catch (e) {
+    passedLevels = [];
+    levelStars = {};
+    stats.maxLevelCleared = -1;
+  }
+}
+
+/** 保存进度到 localStorage */
+function saveProgress() {
+  try {
+    localStorage.setItem('fc_progress', JSON.stringify({ levels: passedLevels, stars: levelStars }));
+  } catch (e) {
+    console.warn('无法保存进度:', e);
+  }
+}
+
+/** 标记关卡通关 */
+function markLevelPassed(lvlIdx) {
+  if (!passedLevels.includes(lvlIdx)) {
+    passedLevels.push(lvlIdx);
+    passedLevels.sort((a, b) => a - b);
+    saveProgress();
+    stats.maxLevelCleared = Math.max(...passedLevels);
+  }
+}
+
+/** 获取关卡解锁状态 */
+function getLevelStatus(lvlIdx) {
+  // 秘籍：全关解锁
+  if (cheatAllLevels) return 'unlocked';
+  if (passedLevels.includes(lvlIdx)) return 'passed'; // 已通关
+  if (lvlIdx === 0 || passedLevels.includes(lvlIdx - 1)) return 'unlocked'; // 可挑战
+  return 'locked'; // 未解锁
+}
+
+/** 渲染当前主题的关卡选择界面 */
+function renderLevelSelect() {
+  const theme = THEMES[currentSelectTheme];
+
+  // 更新主题信息
+  document.getElementById('selectThemeEmoji').textContent = theme.emoji;
+  document.getElementById('selectThemeName').textContent = theme.name;
+  document.getElementById('selectThemePage').textContent = currentSelectTheme + 1;
+  document.getElementById('selectThemeTotal').textContent = THEMES.length;
+  document.getElementById('selectThemeStory').textContent = theme.story;
+  document.getElementById('selectPlayerName').textContent = theme.player.name;
+  document.getElementById('selectPlayerDesc').textContent = theme.player.desc;
+
+  // 更新进度显示
+  document.getElementById('levelSelectProgress').textContent = '已通关 ' + passedLevels.length + '/50';
+
+  // 渲染关卡卡片
+  const grid = document.getElementById('levelCardsGrid');
+  grid.innerHTML = '';
+
+  for (let i = theme.startLevel; i <= theme.endLevel; i++) {
+    const lvl = LEVELS[i];
+    const status = getLevelStatus(i);
+    const card = document.createElement('div');
+    card.className = 'level-card ' + status;
+    card.dataset.level = i;
+
+    const levelNum = i + 1;
+    let statusIcon = '';
+    if (status === 'passed') statusIcon = '✅';
+    else if (status === 'unlocked') statusIcon = '🔓';
+    else statusIcon = '🔒';
+
+    // 评级显示（SABCD）
+    let rankHtml = '';
+    if (status === 'passed' && levelStars[i]) {
+      const s = levelStars[i];
+      const ranks = ['D', 'C', 'B', 'A', 'S'];
+      const rank = ranks[Math.min(Math.max(s - 1, 0), 4)];
+      const rankColors = { S: '#ffd700', A: '#60d060', B: '#4da6ff', C: '#ffa500', D: '#888888' };
+      rankHtml = '<span class="level-rank" style="color:' + rankColors[rank] + '">' + rank + '</span>';
+    }
+
+    card.innerHTML = '<span class="level-num">' + levelNum + '</span>' +
+                     '<span class="level-name">' + lvl.name + '</span>' +
+                     rankHtml +
+                     '<span class="level-status-icon">' + statusIcon + '</span>';
+
+    if (status !== 'locked') {
+      card.addEventListener('click', () => {
+        level = i;
+        showLevelPreview();
+      });
+    }
+
+    grid.appendChild(card);
+  }
+}
+
+/** 显示关卡选择界面 */
+function showLevelSelect() {
+  loadProgress();
+
+  // 默认显示最高通关关卡所在的主题
+  const maxPassed = stats.maxLevelCleared >= 0 ? stats.maxLevelCleared : 0;
+  currentSelectTheme = Math.floor(maxPassed / 10);
+
+  renderLevelSelect();
+  showOverlay('select');
+}
+
+/** 切换到上一个主题 */
+function prevTheme() {
+  if (currentSelectTheme > 0) {
+    currentSelectTheme--;
+    renderLevelSelect();
+  }
+}
+
+/** 切换到下一个主题 */
+function nextTheme() {
+  if (currentSelectTheme < THEMES.length - 1) {
+    currentSelectTheme++;
+    renderLevelSelect();
+  }
+}
+
+// 关卡选择界面事件绑定
+document.getElementById('btnBackToStart').addEventListener('click', () => {
+  backToStart();
+});
+document.getElementById('btnPrevTheme').addEventListener('click', prevTheme);
+document.getElementById('btnNextTheme').addEventListener('click', nextTheme);
 
 // ==================== 初始化 & 启动 ====================
 initItemBar();

@@ -17,7 +17,10 @@ const THEMES = [
     emoji: '🍑',
     startLevel: 0,
     endLevel: 9,
+    story: '在核果大陆的中心，有一座传说中的果园——核果园。每一颗核果都蕴含着大地的记忆与力量。桃太郎从老桃树爷爷那里得知：只有集齐所有核果的祝福，才能获得前往水果圣殿的资格。为了寻找失散的父母，桃太郎踏上了这片神秘的土地...',
     player: {
+      name: '桃太郎',
+      desc: '圆润可爱的粉色小家伙，头戴嫩绿叶帽，性格温和勇敢。传说他是神桃子落入凡间化成的精灵。',
       bodyColor1: '#ffb6c1', bodyColor2: '#e06088',
       headColor1: '#ffe066', headColor2: '#e07000',
       accentColor: '#88cc44',
@@ -51,7 +54,10 @@ const THEMES = [
     emoji: '🍊',
     startLevel: 10,
     endLevel: 19,
+    story: '穿越无尽汪洋，桃太郎来到了传说中的柑橘岛。这里是所有柑橘类水果的诞生地，据说岛上的"黄金柑橘"蕴含着太阳的力量。但通往黄金果园的道路布满了重重障碍——只有真正勇敢的探险者才能摘取那最耀眼的果实...',
     player: {
+      name: '桃太郎',
+      desc: '海风吹拂下，桃太郎戴上了宽边草帽，眼神中闪烁着对未知的渴望。海洋的旅程让他变得更加坚强。',
       bodyColor1: '#ffa040', bodyColor2: '#cc6020',
       headColor1: '#ffcc33', headColor2: '#e08800',
       accentColor: '#3388cc',
@@ -82,10 +88,13 @@ const THEMES = [
   {
     id: 'berry',
     name: '浆果谷',
-    emoji: '🫐',
+    emoji: '🍇',
     startLevel: 20,
     endLevel: 29,
+    story: '传说在遥远的北方，有一片被薄雾笼罩的神秘山谷——浆果谷。这里住着掌管时间的精灵一族，他们培育的浆果蕴含着神奇的力量。蓝莓能让人看清未来的道路，草莓能治愈一切伤痛。精灵女王告诉桃太郎：要获得前往最终圣地的资格，必须先通过浆果谷的考验...',
     player: {
+      name: '桃太郎',
+      desc: '背生晶莹羽翼，眼神中闪烁着智慧的光芒。在精灵的祝福下，桃太郎获得了窥探时间的能力。',
       bodyColor1: '#9070d0', bodyColor2: '#5040a0',
       headColor1: '#8060e0', headColor2: '#4030a0',
       accentColor: '#60d0ff',
@@ -102,11 +111,11 @@ const THEMES = [
       { name: '葡萄',   emoji: '🍇', weight: 0.8, score: 7,  radius: 18, speedMult: 2.0 },
       { name: '猕猴桃', emoji: '🥝', weight: 1.0, score: 8,  radius: 20, speedMult: 1.8 },
       { name: '草莓',   emoji: '🍓', weight: 0.6, score: 10, radius: 17, speedMult: 2.3 },
-      { name: '树莓',   emoji: '🫐', weight: 0.4, score: 15, radius: 14, speedMult: 2.6 },
-      { name: '桑葚',   emoji: '🖤', weight: 0.3, score: 18, radius: 12, speedMult: 3.0 },
-      { name: '蓝莓',   emoji: '🫐', weight: 0.2, score: 20, radius: 11, speedMult: 3.2 },
-      { name: '黑莓',   emoji: '⚫', weight: 0.25, score: 22, radius: 12, speedMult: 3.0 },
-      { name: '蔓越莓', emoji: '🔴', weight: 0.35, score: 16, radius: 13, speedMult: 2.8 },
+      { name: '树莓',   emoji: '🍓', weight: 0.4, score: 15, radius: 14, speedMult: 2.6 },
+      { name: '桑葚',   emoji: '🍇', weight: 0.3, score: 18, radius: 12, speedMult: 3.0 },
+      { name: '蓝莓',   emoji: '🥝', weight: 0.2, score: 20, radius: 11, speedMult: 3.2 },
+      { name: '黑莓',   emoji: '🍇', weight: 0.25, score: 22, radius: 12, speedMult: 3.0 },
+      { name: '蔓越莓', emoji: '🍓', weight: 0.35, score: 16, radius: 13, speedMult: 2.8 },
     ],
     soundStyle: 'magic',
     bgmStyle: 'mystic',
@@ -119,7 +128,10 @@ const THEMES = [
     emoji: '🥭',
     startLevel: 30,
     endLevel: 39,
+    story: '穿过精灵的结界，桃太郎来到了一片古老而神秘的雨林——热带雨林。这里是水果大陆上最古老的地方，隐藏着失落已久的上古果园。传说这里的水果拥有掌控时间的力量，而雨林深处的"永恒之树"据说连接着过去与未来...',
     player: {
+      name: '桃太郎',
+      desc: '身着藤蔓编织的披风，手持古老探险杖，头上戴着用王莲叶做的王冠。在雨林的考验中，桃太郎逐渐显露王者气质。',
       bodyColor1: '#d08040', bodyColor2: '#8a5020',
       headColor1: '#c8a020', headColor2: '#8a6a10',
       accentColor: '#40c040',
@@ -153,7 +165,10 @@ const THEMES = [
     emoji: '🍎',
     startLevel: 40,
     endLevel: 49,
+    story: '穿越重重险阻，桃太郎终于来到了传说中的水果圣殿——仁果殿。这里供奉着水果大陆最神圣的果实："许愿苹果"。据说，吃下它就能实现任何愿望。殿前由五大守护者镇守，每一位都拥有不凡的力量。桃太郎站在圣殿门前，深吸一口气——这是最后一段旅程，也是决定一切的终极挑战...',
     player: {
+      name: '桃太郎',
+      desc: '身披金色战袍，头戴璀璨王冠，胸前佩戴着五颗主题水果的宝石徽章。历经磨砺的桃太郎，终于有了几分王者风范。',
       bodyColor1: '#cc2020', bodyColor2: '#8a1010',
       headColor1: '#ff3030', headColor2: '#cc1010',
       accentColor: '#ffd700',
@@ -261,10 +276,10 @@ const ITEMS = [
 ];
 
 // ---- 道具掉落参数 ----
-const ITEM_SPAWN_INTERVAL = 12000;
-const ITEM_DROP_CHANCE = 0.35;
-const ITEM_MAX_ON_FIELD = 2;
-const ITEM_MAX_BAG = 3;
+const ITEM_SPAWN_INTERVAL = 8000;  // 道具刷新间隔（毫秒）
+const ITEM_DROP_CHANCE = 0.55;     // 道具掉落概率
+const ITEM_MAX_ON_FIELD = 3;       // 场上最多道具数
+const ITEM_MAX_BAG = 3;            // 背包最多道具数
 
 // ---- 角色默认参数 ----
 const PLAYER = {

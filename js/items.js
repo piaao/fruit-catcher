@@ -179,7 +179,7 @@ function resetItemBag() {
 /* ---- 键盘监听 ---- */
 document.addEventListener('keydown', e => {
   const key = parseInt(e.key);
-  if (key >= 1 && key <= 5) {
+  if (key >= 1 && key <= 6) {
     useItem(key - 1);
   }
 });
