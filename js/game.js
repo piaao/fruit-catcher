@@ -52,6 +52,10 @@ let combo = 0, comboTimer = 0;
 let screenFlash = 0;
 let roundStartTime = 0;
 
+// 追踪已出现的水果和道具（用于 NEW 标记）
+let seenFruits = new Set();
+let seenItems = new Set();
+
 // ---- 主题状态 ----
 let currentTheme = THEMES[0];
 let bgParticles = [];
@@ -186,24 +190,40 @@ function showLevelPreview() {
   document.getElementById('previewTarget').textContent = lvl.target;
 
   // 计算难度星级（基于速度和炸弹概率）
-  const speedScore = (lvl.baseSpeed - 104) / (300 - 104); // 0-1
-  const bombScore = (lvl.bombChance - 0.064) / (0.24 - 0.064); // 0-1
+  const speedScore = (lvl.baseSpeed - 104) / (300 - 104);
+  const bombScore = (lvl.bombChance - 0.064) / (0.24 - 0.064);
   const totalScore = (speedScore + bombScore) / 2;
   const stars = Math.ceil(totalScore * 5);
   document.getElementById('previewStars').textContent = '★'.repeat(stars) + '☆'.repeat(5 - stars);
   document.getElementById('previewStars').style.color = stars >= 4 ? '#ff6b6b' : stars >= 3 ? '#ffa500' : '#ffd700';
 
-  // 生成水果列表
+  // 生成水果列表 + NEW 标记
   const fruits = theme.fruits;
   const fruitsHtml = fruits.map(f => {
     const speedClass = f.speedMult >= 2.5 ? 'fruit-fast' : f.speedMult >= 2.0 ? 'fruit-medium' : 'fruit-slow';
+    const isNew = !seenFruits.has(f.name);
+    seenFruits.add(f.name);
     return `<div class="preview-fruit-item">
       <span class="preview-fruit-icon">${f.emoji}</span>
       <span class="preview-fruit-name">${f.name}</span>
+      ${isNew ? '<span class="new-badge">NEW</span>' : ''}
       <span class="preview-fruit-score ${speedClass}">${f.score}分</span>
     </div>`;
   }).join('');
-  document.getElementById('previewFruits').innerHTML = '<div class="preview-fruits-title">本关水果</div>' + fruitsHtml;
+  document.getElementById('previewFruits').innerHTML = '<div class="preview-section-title">🍑 本关水果</div>' + fruitsHtml;
+
+  // 生成道具列表 + NEW 标记
+  const itemsHtml = ITEMS.map(item => {
+    const isNew = !seenItems.has(item.id);
+    seenItems.add(item.id);
+    return `<div class="preview-item-item">
+      <span class="preview-item-icon">${item.icon}</span>
+      <span class="preview-item-name">${item.name}</span>
+      ${isNew ? '<span class="new-badge">NEW</span>' : ''}
+      <span class="preview-item-desc">${item.desc}</span>
+    </div>`;
+  }).join('');
+  document.getElementById('previewItems').innerHTML = '<div class="preview-section-title">🎁 道具一览</div>' + itemsHtml;
 
   hideAllOverlays();
   showOverlay('preview');
