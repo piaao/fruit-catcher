@@ -560,6 +560,7 @@ function beginRound() {
 
   // 初始化当前关卡的道具池（渐进式）
   currentLevelItems = getCurrentItemPool();
+  initItemBar(); // 重新初始化道具栏（根据当前关卡的道具池）
   resetItemBag();
   clearAllItemEffects();
 
