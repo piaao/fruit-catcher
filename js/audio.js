@@ -880,3 +880,56 @@ function playClearCelebrationSound() {
     o.start(t); o.stop(t + 0.55);
   });
 }
+
+/** 里程碑达成音效（40% / 80% 阶段目标）- 敞亮"哈~"满足感 */
+function playMilestoneSound(threshold) {
+  ensureAudio();
+  const ac = audioCtx;
+  const is80 = threshold >= 80;
+  const now = ac.currentTime;
+  const dur = is80 ? 1.35 : 0.9; // 1.5倍于原时长
+
+  // ---- 哈~ 主音：中低频开口音 ----
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.connect(g); g.connect(ac.destination);
+  o.type = 'sine';
+  const baseFreq = is80 ? 300 : 360;
+  o.frequency.setValueAtTime(baseFreq, now);
+  o.frequency.linearRampToValueAtTime(baseFreq * 1.4, now + 0.08); // 开口上扬
+  o.frequency.exponentialRampToValueAtTime(baseFreq * 0.8, now + dur);
+  g.gain.setValueAtTime(0, now);
+  g.gain.linearRampToValueAtTime(0.35, now + 0.03);
+  g.gain.setValueAtTime(0.35, now + 0.15);
+  g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+  o.start(now); o.stop(now + dur + 0.05);
+
+  // ---- 哈~ 敞亮泛音层：高频谐波增加气流感 ----
+  const harmonics = is80
+    ? [[2, 0.18], [3, 0.12], [4, 0.08]]
+    : [[2, 0.15], [3, 0.1]];
+  harmonics.forEach(([mult, vol]) => {
+    const o2 = ac.createOscillator(), g2 = ac.createGain();
+    o2.connect(g2); g2.connect(ac.destination);
+    o2.type = 'sine';
+    o2.frequency.setValueAtTime(baseFreq * mult, now);
+    o2.frequency.linearRampToValueAtTime(baseFreq * mult * 1.4, now + 0.08);
+    o2.frequency.exponentialRampToValueAtTime(baseFreq * mult * 0.8, now + dur);
+    g2.gain.setValueAtTime(0, now);
+    g2.gain.linearRampToValueAtTime(vol, now + 0.05);
+    g2.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    o2.start(now); o2.stop(now + dur + 0.05);
+  });
+
+  // ---- 80%额外：绵长的满足尾音 ----
+  if (is80) {
+    const o3 = ac.createOscillator(), g3 = ac.createGain();
+    o3.connect(g3); g3.connect(ac.destination);
+    o3.type = 'triangle';
+    o3.frequency.setValueAtTime(600, now + 0.1);
+    o3.frequency.exponentialRampToValueAtTime(380, now + dur * 0.9);
+    g3.gain.setValueAtTime(0, now + 0.1);
+    g3.gain.linearRampToValueAtTime(0.15, now + 0.18);
+    g3.gain.exponentialRampToValueAtTime(0.001, now + dur * 0.8);
+    o3.start(now + 0.1); o3.stop(now + dur);
+  }
+}

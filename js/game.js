@@ -52,6 +52,9 @@ let floatingTexts = [];
 let spawnTimer = 0, countdownTimer = null;
 let combo = 0, comboTimer = 0;
 let screenFlash = 0;
+// 关卡里程碑（每关首次达成时触发一次）
+let milestone40 = false;
+let milestone80 = false;
 let roundStartTime = 0;
 
 // 追踪已出现的水果和道具（用于 NEW 标记）
@@ -696,6 +699,7 @@ function beginRound() {
   itemSpawnTimer = 0;
   timeLeft = ROUND_TIME;
   combo = 0; comboTimer = 0;
+  milestone40 = false; milestone80 = false;
   roundStartTime = performance.now();
   resetRoundStats();
 
@@ -1067,6 +1071,83 @@ function checkComboMilestone(combo) {
   triggerScreenEdgeFlash(colors[Math.min(level - 1, 4)] + '80');
 }
 
+/** 关卡阶段里程碑检测（40% / 80%） */
+function checkLevelMilestone() {
+  if (state !== 'playing') return;
+  const target = LEVELS[level].target;
+  const pct = score / target;
+
+  if (!milestone80 && pct >= 0.8) {
+    milestone80 = true;
+    triggerMilestoneEffect(80);
+  } else if (!milestone40 && pct >= 0.4) {
+    milestone40 = true;
+    triggerMilestoneEffect(40);
+  }
+}
+
+/** 触发里程碑特效：文字从右滑入扩大 + 屏幕闪光 + 音效 */
+function triggerMilestoneEffect(threshold) {
+  const is80 = threshold >= 80;
+  const color = is80 ? '#ffaa00' : currentTheme.player.accentColor;
+  const juiceColor = is80 ? '#ff8800' : '#ffcc44';
+  const emoji = is80 ? '💥' : '✨';
+  // 动画时间1.5倍：1.6s → 2.4s，移除时间 1700 → 2550ms
+  const label = '关卡进度' + threshold + '%';
+
+  // 1. 里程碑音效
+  if (typeof playMilestoneSound === 'function') playMilestoneSound(threshold);
+
+  // 2. 屏幕边缘闪光
+  triggerScreenEdgeFlash(juiceColor + '80');
+
+  // 3. 文字动画（从右侧滑入扩大再消散）
+  addJuicyText(W * 0.5, CY, emoji + ' ' + label, color, juiceColor, is80);
+
+  // 4. 屏幕边缘彩色边框
+  screenFlash = is80 ? 1.0 : 0.7;
+}
+
+/** 果汁飞溅文字：从右滑入 → 扩大 → 慢慢消散 */
+function addJuicyText(x, y, text, color, juiceColor, isBig) {
+  const id = 'juicyStyle';
+  if (!document.getElementById(id)) {
+    const s = document.createElement('style');
+    s.id = id;
+    s.textContent = [
+      '@keyframes juicyIn {',
+      '  0%  { transform:translate(160px,0) scale(0.4); opacity:0; }',
+      '  30% { transform:translate(0,0)    scale(1.3);  opacity:1; }',
+      '  55% { transform:translate(0,0)    scale(1);    opacity:1; }',
+      '  100%{ transform:translate(-30px,0) scale(0.8); opacity:0; }',
+      '}',
+      '@keyframes juicyGlow {',
+      '  0%,100%{ text-shadow:0 0 20px var(--jc),0 0 40px var(--jc); }',
+      '  50%  { text-shadow:0 0 30px var(--jc),0 0 60px var(--jo); }',
+      '}',
+    ].join('');
+    document.head.appendChild(s);
+  }
+
+  const el = document.createElement('div');
+  el.textContent = text;
+  el.style.cssText = [
+    `position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%);`,
+    `font-size:${isBig ? '52px' : '42px'};font-weight:900;`,
+    `font-family:'Arial Black','Microsoft YaHei',sans-serif;`,
+    `color:${color};`,
+    `--jc:${color};--jo:${juiceColor};`,
+    `text-shadow:0 0 20px ${color},0 0 40px ${juiceColor};`,
+    `pointer-events:none;z-index:9999;white-space:nowrap;`,
+    `animation:juicyIn 2.4s cubic-bezier(0.22,1,0.36,1) forwards,`,
+    `           juicyGlow ${isBig ? '0.45s' : '0.6s'} ease-in-out infinite;`,
+  ].join('');
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2550);
+}
+
+
+
 /** 主题通关庆祝效果 */
 function createThemeClearCelebration(theme, levelNum) {
   // 播放主题通关音效
@@ -1301,6 +1382,8 @@ function mainLoop(ts) {
           if (activeEffects.double.active) pts *= 2;
           score += pts;
           stats.roundScore = score;
+          // 关卡里程碑检测（40% / 80%）
+          checkLevelMilestone();
           stats.roundFruits[p.def.name] = (stats.roundFruits[p.def.name] || 0) + 1;
           stats.roundTotalFruits++;
           document.getElementById('scoreVal').textContent = score;

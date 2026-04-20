@@ -200,64 +200,64 @@ const THEMES = [
 
 const LEVELS = [
   // ---- 核果园（1-10关）----
-  { name: '桃源初见', target: 60,  baseSpeed: 104, spawnInterval: 1800, bombChance: 0.05 },
-  { name: '花瓣飘落', target: 73,  baseSpeed: 108, spawnInterval: 1780, bombChance: 0.055 },
-  { name: '果园漫步', target: 86,  baseSpeed: 112, spawnInterval: 1760, bombChance: 0.06 },
-  { name: '枝头硕果', target: 99,  baseSpeed: 116, spawnInterval: 1740, bombChance: 0.065 },
-  { name: '蜜桃丰收', target: 112, baseSpeed: 120, spawnInterval: 1720, bombChance: 0.07 },
-  { name: '核果小径', target: 125, baseSpeed: 124, spawnInterval: 1700, bombChance: 0.072 },
-  { name: '油桃山坡', target: 138, baseSpeed: 128, spawnInterval: 1680, bombChance: 0.075 },
-  { name: '乌梅树下', target: 151, baseSpeed: 132, spawnInterval: 1660, bombChance: 0.078 },
-  { name: '落日果园', target: 165, baseSpeed: 136, spawnInterval: 1640, bombChance: 0.080 },
-  { name: '核果之王', target: 180, baseSpeed: 140, spawnInterval: 1620, bombChance: 0.085 },
+  { name: '桃源初见', target: 70,  baseSpeed: 104, spawnInterval: 1800, bombChance: 0.060 },
+  { name: '花瓣飘落', target: 85,  baseSpeed: 108, spawnInterval: 1780, bombChance: 0.070 },
+  { name: '果园漫步', target: 100, baseSpeed: 112, spawnInterval: 1760, bombChance: 0.080 },
+  { name: '枝头硕果', target: 115, baseSpeed: 116, spawnInterval: 1740, bombChance: 0.090 },
+  { name: '蜜桃丰收', target: 130, baseSpeed: 120, spawnInterval: 1720, bombChance: 0.100 },
+  { name: '核果小径', target: 145, baseSpeed: 124, spawnInterval: 1700, bombChance: 0.110 },
+  { name: '油桃山坡', target: 160, baseSpeed: 128, spawnInterval: 1680, bombChance: 0.120 },
+  { name: '乌梅树下', target: 175, baseSpeed: 132, spawnInterval: 1660, bombChance: 0.130 },
+  { name: '落日果园', target: 190, baseSpeed: 136, spawnInterval: 1640, bombChance: 0.140 },
+  { name: '核果之王', target: 210, baseSpeed: 140, spawnInterval: 1620, bombChance: 0.150 },
 
   // ---- 柑橘岛（11-20关）----
-  { name: '岸边初探', target: 200, baseSpeed: 144, spawnInterval: 1580, bombChance: 0.08 },
-  { name: '柑橘港口', target: 217, baseSpeed: 148, spawnInterval: 1550, bombChance: 0.085 },
-  { name: '柠檬小径', target: 234, baseSpeed: 152, spawnInterval: 1520, bombChance: 0.09 },
-  { name: '金色果园', target: 251, baseSpeed: 156, spawnInterval: 1490, bombChance: 0.095 },
-  { name: '海上风暴', target: 268, baseSpeed: 160, spawnInterval: 1460, bombChance: 0.100 },
-  { name: '沃柑丘陵', target: 285, baseSpeed: 164, spawnInterval: 1430, bombChance: 0.105 },
-  { name: '芦柑山谷', target: 302, baseSpeed: 168, spawnInterval: 1400, bombChance: 0.110 },
-  { name: '柚子海滩', target: 319, baseSpeed: 172, spawnInterval: 1370, bombChance: 0.115 },
-  { name: '暮色港口', target: 336, baseSpeed: 176, spawnInterval: 1340, bombChance: 0.118 },
-  { name: '柑橘之王', target: 350, baseSpeed: 180, spawnInterval: 1310, bombChance: 0.120 },
+  { name: '岸边初探', target: 210, baseSpeed: 144, spawnInterval: 1580, bombChance: 0.090 },
+  { name: '柑橘港口', target: 230, baseSpeed: 148, spawnInterval: 1550, bombChance: 0.095 },
+  { name: '柠檬小径', target: 250, baseSpeed: 152, spawnInterval: 1520, bombChance: 0.100 },
+  { name: '金色果园', target: 270, baseSpeed: 156, spawnInterval: 1490, bombChance: 0.105 },
+  { name: '海上风暴', target: 290, baseSpeed: 160, spawnInterval: 1460, bombChance: 0.110 },
+  { name: '沃柑丘陵', target: 310, baseSpeed: 164, spawnInterval: 1430, bombChance: 0.115 },
+  { name: '芦柑山谷', target: 330, baseSpeed: 168, spawnInterval: 1400, bombChance: 0.120 },
+  { name: '柚子海滩', target: 350, baseSpeed: 172, spawnInterval: 1370, bombChance: 0.125 },
+  { name: '暮色港口', target: 370, baseSpeed: 176, spawnInterval: 1340, bombChance: 0.128 },
+  { name: '柑橘之王', target: 385, baseSpeed: 180, spawnInterval: 1310, bombChance: 0.130 },
 
   // ---- 浆果谷（21-30关）----
-  { name: '谷口迷雾', target: 370, baseSpeed: 184, spawnInterval: 1280, bombChance: 0.12 },
-  { name: '草莓花田', target: 386, baseSpeed: 188, spawnInterval: 1250, bombChance: 0.125 },
-  { name: '蓝莓灌木', target: 402, baseSpeed: 192, spawnInterval: 1220, bombChance: 0.130 },
-  { name: '桑葚小径', target: 418, baseSpeed: 196, spawnInterval: 1190, bombChance: 0.135 },
-  { name: '精灵树屋', target: 434, baseSpeed: 200, spawnInterval: 1160, bombChance: 0.140 },
-  { name: '猕猴桃溪', target: 450, baseSpeed: 204, spawnInterval: 1130, bombChance: 0.145 },
-  { name: '树莓密林', target: 466, baseSpeed: 208, spawnInterval: 1100, bombChance: 0.150 },
-  { name: '葡萄藤架', target: 482, baseSpeed: 212, spawnInterval: 1070, bombChance: 0.153 },
-  { name: '圣女果园', target: 500, baseSpeed: 216, spawnInterval: 1040, bombChance: 0.157 },
-  { name: '浆果之王', target: 520, baseSpeed: 220, spawnInterval: 1010, bombChance: 0.160 },
+  { name: '谷口迷雾', target: 400, baseSpeed: 184, spawnInterval: 1280, bombChance: 0.130 },
+  { name: '草莓花田', target: 420, baseSpeed: 188, spawnInterval: 1250, bombChance: 0.135 },
+  { name: '蓝莓灌木', target: 440, baseSpeed: 192, spawnInterval: 1220, bombChance: 0.140 },
+  { name: '桑葚小径', target: 460, baseSpeed: 196, spawnInterval: 1190, bombChance: 0.145 },
+  { name: '精灵树屋', target: 480, baseSpeed: 200, spawnInterval: 1160, bombChance: 0.150 },
+  { name: '猕猴桃溪', target: 500, baseSpeed: 204, spawnInterval: 1130, bombChance: 0.155 },
+  { name: '树莓密林', target: 520, baseSpeed: 208, spawnInterval: 1100, bombChance: 0.160 },
+  { name: '葡萄藤架', target: 540, baseSpeed: 212, spawnInterval: 1070, bombChance: 0.165 },
+  { name: '圣女果园', target: 560, baseSpeed: 216, spawnInterval: 1040, bombChance: 0.168 },
+  { name: '浆果之王', target: 580, baseSpeed: 220, spawnInterval: 1010, bombChance: 0.170 },
 
   // ---- 热带雨林（31-40关）----
-  { name: '雨林边缘', target: 545, baseSpeed: 224, spawnInterval: 990,  bombChance: 0.160 },
-  { name: '香蕉丛林', target: 561, baseSpeed: 228, spawnInterval: 970,  bombChance: 0.165 },
-  { name: '芒果海岸', target: 577, baseSpeed: 232, spawnInterval: 950,  bombChance: 0.170 },
-  { name: '菠萝要塞', target: 593, baseSpeed: 236, spawnInterval: 930,  bombChance: 0.175 },
-  { name: '瀑布秘境', target: 610, baseSpeed: 240, spawnInterval: 910,  bombChance: 0.178 },
-  { name: '榴莲丛林', target: 628, baseSpeed: 244, spawnInterval: 890,  bombChance: 0.182 },
-  { name: '火山脚下', target: 646, baseSpeed: 248, spawnInterval: 870,  bombChance: 0.185 },
-  { name: '荔枝沼泽', target: 665, baseSpeed: 252, spawnInterval: 850,  bombChance: 0.188 },
-  { name: '椰子海滩', target: 685, baseSpeed: 256, spawnInterval: 830,  bombChance: 0.192 },
-  { name: '热带之王', target: 700, baseSpeed: 260, spawnInterval: 810,  bombChance: 0.195 },
+  { name: '雨林边缘', target: 600, baseSpeed: 224, spawnInterval: 990,  bombChance: 0.170 },
+  { name: '香蕉丛林', target: 620, baseSpeed: 228, spawnInterval: 970,  bombChance: 0.175 },
+  { name: '芒果海岸', target: 645, baseSpeed: 232, spawnInterval: 950,  bombChance: 0.180 },
+  { name: '菠萝要塞', target: 670, baseSpeed: 236, spawnInterval: 930,  bombChance: 0.185 },
+  { name: '瀑布秘境', target: 695, baseSpeed: 240, spawnInterval: 910,  bombChance: 0.190 },
+  { name: '榴莲丛林', target: 720, baseSpeed: 244, spawnInterval: 890,  bombChance: 0.195 },
+  { name: '火山脚下', target: 745, baseSpeed: 248, spawnInterval: 870,  bombChance: 0.200 },
+  { name: '荔枝沼泽', target: 770, baseSpeed: 252, spawnInterval: 850,  bombChance: 0.205 },
+  { name: '椰子海滩', target: 800, baseSpeed: 256, spawnInterval: 830,  bombChance: 0.208 },
+  { name: '热带之王', target: 830, baseSpeed: 260, spawnInterval: 810,  bombChance: 0.210 },
 
   // ---- 仁果殿（41-50关）----
-  { name: '殿前广场', target: 725, baseSpeed: 264, spawnInterval: 790, bombChance: 0.18 },
-  { name: '皇家果园', target: 742, baseSpeed: 268, spawnInterval: 775, bombChance: 0.183 },
-  { name: '石榴走廊', target: 758, baseSpeed: 272, spawnInterval: 760, bombChance: 0.186 },
-  { name: '山楂密室', target: 774, baseSpeed: 276, spawnInterval: 745, bombChance: 0.189 },
-  { name: '宫廷宴会', target: 790, baseSpeed: 280, spawnInterval: 730, bombChance: 0.192 },
-  { name: '地下酒窖', target: 806, baseSpeed: 284, spawnInterval: 715, bombChance: 0.195 },
-  { name: '枇杷花园', target: 822, baseSpeed: 288, spawnInterval: 700, bombChance: 0.197 },
-  { name: '瓜果迷宫', target: 838, baseSpeed: 292, spawnInterval: 685, bombChance: 0.199 },
-  { name: '龙椅之前', target: 858, baseSpeed: 296, spawnInterval: 670, bombChance: 0.200 },
-  { name: '果皇加冕', target: 880, baseSpeed: 300, spawnInterval: 655, bombChance: 0.200 },
+  { name: '殿前广场', target: 860, baseSpeed: 264, spawnInterval: 790, bombChance: 0.200 },
+  { name: '皇家果园', target: 880, baseSpeed: 268, spawnInterval: 775, bombChance: 0.205 },
+  { name: '石榴走廊', target: 900, baseSpeed: 272, spawnInterval: 760, bombChance: 0.210 },
+  { name: '山楂密室', target: 920, baseSpeed: 276, spawnInterval: 745, bombChance: 0.215 },
+  { name: '宫廷宴会', target: 940, baseSpeed: 280, spawnInterval: 730, bombChance: 0.220 },
+  { name: '地下酒窖', target: 960, baseSpeed: 284, spawnInterval: 715, bombChance: 0.222 },
+  { name: '枇杷花园', target: 980, baseSpeed: 288, spawnInterval: 700, bombChance: 0.225 },
+  { name: '瓜果迷宫', target: 1000, baseSpeed: 292, spawnInterval: 685, bombChance: 0.227 },
+  { name: '龙椅之前', target: 1030, baseSpeed: 296, spawnInterval: 670, bombChance: 0.230 },
+  { name: '果皇加冕', target: 1060, baseSpeed: 300, spawnInterval: 655, bombChance: 0.230 },
 ];
 
 const ROUND_TIME = 45;
@@ -332,18 +332,22 @@ function getFruitCount() {
   return count;
 }
 
-/** 获取当前可用的道具池（按主题渐进解锁） */
+/** 获取当前可用的道具池（前10关按关卡渐进解锁，后40关全6个） */
 function getCurrentItemPool() {
-  const themeIndex = getThemeIndex();
-  // 主题0: 2个, 主题1: 3个, 主题2: 4个, 主题3: 5个, 主题4: 6个(全部)
-  const itemCount = Math.min(2 + themeIndex, ITEMS.length);
-  return ITEMS.slice(0, itemCount);
+  if (level < 10) {
+    // 第1关0个，第2关起每关+1个，1→6渐进展示
+    const itemCount = Math.max(0, level);
+    return ITEMS.slice(0, itemCount);
+  }
+  return ITEMS; // 第11关起全6个道具
 }
 
 /** 获取当前可用的道具数量 */
 function getItemCount() {
-  const themeIndex = getThemeIndex();
-  return Math.min(2 + themeIndex, ITEMS.length);
+  if (level < 10) {
+    return Math.max(0, level);
+  }
+  return ITEMS.length;
 }
 
 /** 判断是否进入新主题（主题关第一关） */
