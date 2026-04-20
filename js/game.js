@@ -58,55 +58,174 @@ let milestone80 = false;
 let roundStartTime = 0;
 
 // ---- 海风系统（柑橘岛主题）----
-let windState = { active: false, vx: 0, targetVx: 0, timer: 0, interval: 4, particles: [] };
+// ---- 海风系统（柑橘岛主题）----
+let windState = {
+  active: false,
+  vx: 0, vy: 0,       // 当前风向速度向量
+  dir: 'E',            // N/S/E/W 四个方向
+  strength: 0,         // 1=微风, 2=中风, 3=强风
+  timer: 0,            // 方向切换计时
+  interval: 6,         // 切换间隔(秒)
+  streaks: [],         // 风迹粒子（漂浮物）
+  blowSound: null,     // 当前播放的风声节点
+};
+
+// 风力等级 → 速度基础值（px/s）
+function windBaseSpeed(str) {
+  return str === 1 ? 70 : str === 2 ? 150 : 250;
+}
 
 function getWindStrength() {
-  // windStrength: 0=无风, 1=微风(35px/s), 2=中风(80-130px/s), 3=强风
   const lvl = LEVELS[level];
   return lvl.windStrength || 0;
 }
 
-function updateWind(dt) {
-  const strength = getWindStrength();
-  if (strength === 0) {
+// 随机选择一个方向
+function randomWindDir() {
+  const dirs = ['N', 'S', 'E', 'W'];
+  return dirs[Math.floor(Math.random() * 4)];
+}
+
+// 根据方向和强度计算目标速度向量
+function windTargetVector(dir, str) {
+  const spd = windBaseSpeed(str);
+  switch (dir) {
+    case 'N': return { vx: 0, vy: -spd };
+    case 'S': return { vx: 0, vy: spd };
+    case 'E': return { vx: spd, vy: 0 };
+    case 'W': return { vx: -spd, vy: 0 };
+  }
+}
+
+// 每关开始时调用：初始化风力
+function initWindLevel() {
+  const str = getWindStrength();
+  if (str === 0) {
     windState.active = false;
-    windState.vx = 0;
+    windState.vx = 0; windState.vy = 0;
+    stopWindSound();
     return;
   }
   windState.active = true;
-  const maxVx = strength === 1 ? 35 : strength === 2 ? 80 : 130;
+  windState.strength = str;
+  windState.dir = randomWindDir();
+  windState.timer = windState.interval;
+  const t = windTargetVector(windState.dir, str);
+  windState.vx = t.vx;
+  windState.vy = t.vy;
+  playWindSound(str);
+}
 
-  windState.timer -= dt;
-  // 首次或定时切换风向（开局 timer=0，立即触发）
-  if (windState.timer <= 0) {
-    windState.timer = windState.interval + Math.random() * 2;
-    if (Math.random() < 0.3) {
-      windState.targetVx = 0;
-      windState.timer *= 0.4;
-    } else {
-      windState.targetVx = (Math.random() < 0.5 ? 1 : -1) * maxVx * (0.5 + Math.random() * 0.5);
+// 更新风力系统（每帧）
+function updateWind(dt) {
+  const str = getWindStrength();
+  if (str === 0) {
+    if (windState.active) {
+      windState.active = false;
+      stopWindSound();
     }
+    return;
   }
-  windState.vx += (windState.targetVx - windState.vx) * Math.min(dt * 2, 1);
 
-  // 更新风向粒子（更密集）
-  const strength2 = Math.abs(windState.vx) / maxVx;
-  const maxParticles = Math.ceil(strength2 * 25) + 5;
-  if (Math.random() < 0.5 && windState.particles.length < maxParticles) {
-    windState.particles.push({
-      x: Math.random() * W,
-      y: Math.random() * H,
-      life: 0.8 + Math.random() * 0.6,
-      alpha: 0.3 + Math.random() * 0.4,
-      len: 20 + Math.random() * 30,
+  windState.active = true;
+
+  // 强度变化时重启音效
+  if (str !== windState.strength) {
+    windState.strength = str;
+    playWindSound(str);
+  }
+
+  // 定时切换方向
+  windState.timer -= dt;
+  if (windState.timer <= 0) {
+    windState.timer = windState.interval + Math.random() * 3;
+    windState.dir = randomWindDir();
+    const t = windTargetVector(windState.dir, str);
+    windState.vx = t.vx;
+    windState.vy = t.vy;
+  }
+
+  // 更新风迹粒子（漂浮物：树叶/气泡）
+  const maxS = windState.strength === 1 ? 8 : windState.strength === 2 ? 14 : 20;
+  if (Math.random() < 0.4 && windState.streaks.length < maxS) {
+    // 从风来的方向边缘生成
+    let sx, sy;
+    if (windState.dir === 'N') { sx = Math.random() * W; sy = H + 10; }
+    else if (windState.dir === 'S') { sx = Math.random() * W; sy = -10; }
+    else if (windState.dir === 'E') { sx = -10; sy = Math.random() * H; }
+    else { sx = W + 10; sy = Math.random() * H; }
+    windState.streaks.push({
+      x: sx, y: sy,
+      life: 1.5 + Math.random() * 1,
+      alpha: 0.5 + Math.random() * 0.4,
+      size: 4 + Math.random() * 8,
+      rot: Math.random() * Math.PI * 2,
+      rotSpd: (Math.random() - 0.5) * 3,
+      wobble: Math.random() * Math.PI * 2,
+      emoji: Math.random() < 0.6 ? '🍃' : (Math.random() < 0.5 ? '🌿' : '✦'),
     });
   }
-  windState.particles.forEach(p => {
+  const spd = windBaseSpeed(windState.strength);
+  windState.streaks.forEach(p => {
     p.x += windState.vx * dt;
+    p.y += windState.vy * dt;
     p.life -= dt;
-    p.alpha = Math.max(0, p.life * 0.5);
+    p.rot += p.rotSpd * dt;
+    p.wobble += dt * 2;
+    p.alpha = Math.max(0, (p.life / 2.5) * 0.7);
   });
-  windState.particles = windState.particles.filter(p => p.life > 0 && p.x > -60 && p.x < W + 60);
+  windState.streaks = windState.streaks.filter(p =>
+    p.life > 0 && p.x > -80 && p.x < W + 80 && p.y > -80 && p.y < H + 80
+  );
+}
+
+// 播放风力环境音效（白噪音+带通滤波）
+function playWindSound(str) {
+  stopWindSound();
+  if (typeof ensureAudio !== 'function' || !audioCtx) return;
+  ensureAudio();
+  const ac = audioCtx;
+  const now = ac.currentTime;
+
+  // 噪声缓冲（持续循环）
+  const nsBuf = ac.createBuffer(1, ac.sampleRate * 3, ac.sampleRate);
+  const data = nsBuf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+
+  const ns = ac.createBufferSource();
+  ns.buffer = nsBuf;
+  ns.loop = true;
+
+  // 带通滤波（塑造风声音色）
+  const bp = ac.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = str === 1 ? 400 : str === 2 ? 700 : 1100;
+  bp.Q.value = str === 1 ? 0.5 : str === 2 ? 0.7 : 1.0;
+
+  // 高频啸叫（强风更明显）
+  const hp = ac.createBiquadFilter();
+  hp.type = 'highshelf';
+  hp.frequency.value = 2000;
+  hp.gain.value = str === 1 ? -6 : str === 2 ? 0 : 6;
+
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0, now);
+  g.gain.linearRampToValueAtTime(str === 1 ? 0.06 : str === 2 ? 0.12 : 0.20, now + 0.5);
+  g.gain.setValueAtTime(str === 1 ? 0.06 : str === 2 ? 0.12 : 0.20, now + 3);
+  g.gain.linearRampToValueAtTime(0, now + 3.5);
+
+  ns.connect(bp); bp.connect(hp); hp.connect(g); g.connect(ac.destination);
+  ns.start(now);
+  windState.blowSound = { src: ns, gain: g };
+}
+
+function stopWindSound() {
+  if (windState.blowSound) {
+    try {
+      windState.blowSound.src.stop();
+    } catch(e) {}
+    windState.blowSound = null;
+  }
 }
 
 // 追踪已出现的水果和道具（用于 NEW 标记）
@@ -115,7 +234,7 @@ let seenItems = new Set();
 
 // ---- 海风演示动画（关卡选择界面）----
 let windDemoRAF = null;
-let windDemoFruits = [];
+let windDemoItems = [];
 
 function initWindDemo() {
   const canvas = document.getElementById('windDemoCanvas');
@@ -123,68 +242,73 @@ function initWindDemo() {
   const ctx = canvas.getContext('2d');
   const W2 = canvas.width, H2 = canvas.height;
 
-  // 初始化演示水果
-  windDemoFruits = [];
-  for (let i = 0; i < 6; i++) {
-    windDemoFruits.push({
+  windDemoItems = [];
+  for (let i = 0; i < 8; i++) {
+    windDemoItems.push({
       x: Math.random() * W2,
       y: Math.random() * H2,
-      vx: (Math.random() - 0.5) * 20,
-      vy: 15 + Math.random() * 15,
-      r: 4 + Math.random() * 6,
-      emoji: ['🍊', '🍋', '🍊', '🍈', '🍅', '🍊'][i],
-      alpha: 0.5 + Math.random() * 0.5,
+      vx: (Math.random() - 0.5) * 15,
+      vy: 12 + Math.random() * 12,
+      size: 8 + Math.random() * 6,
+      emoji: Math.random() < 0.5 ? '🍃' : (Math.random() < 0.5 ? '🌿' : '🍊'),
+      alpha: 0.6 + Math.random() * 0.4,
+      rot: Math.random() * Math.PI * 2,
+      rotSpd: (Math.random() - 0.5) * 2,
     });
   }
 
-  let windVx = 60;
+  let windVx = 0, windVy = 60;
   let windTimer = 0;
+  let windDir = 'S';
+  const windDirs = ['N', 'S', 'E', 'W'];
+  let dirIdx = 1;
   let t = 0;
 
   function drawFrame() {
     ctx.clearRect(0, 0, W2, H2);
 
-    // 绘制海风粒子线
+    // 风向标签
+    const dirIcon = windDir === 'N' ? '↑北' : windDir === 'S' ? '↓南' : windDir === 'E' ? '→东' : '←西';
     ctx.save();
-    ctx.strokeStyle = 'rgba(136,221,255,0.2)';
-    ctx.lineWidth = 1;
-    for (let i = 0; i < 8; i++) {
-      const py = (t * 40 + i * 12) % H2;
-      ctx.globalAlpha = 0.3 - py / H2 * 0.2;
-      ctx.beginPath();
-      ctx.moveTo(0, py);
-      ctx.lineTo(windVx > 0 ? 40 : -40, py + 5);
-      ctx.stroke();
-    }
+    ctx.fillStyle = 'rgba(136,221,255,0.9)';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(dirIcon, W2 / 2, H2 - 8);
     ctx.restore();
 
-    // 绘制水果
-    windDemoFruits.forEach(f => {
+    // 绘制漂浮物（随风移动）
+    windDemoItems.forEach(f => {
       f.x += f.vx * 0.016 + windVx * 0.016;
-      f.y += f.vy * 0.016;
-      // 碰到边界反弹并换向
-      if (f.x < 0 || f.x > W2) {
-        f.vx = -f.vx + (Math.random() - 0.5) * 10;
-        f.x = f.x < 0 ? 0 : W2;
-      }
-      if (f.y > H2 + 10) {
-        f.y = -10;
-        f.x = Math.random() * W2;
-      }
+      f.y += f.vy * 0.016 + windVy * 0.016;
+      f.rot += f.rotSpd * 0.016;
       ctx.save();
       ctx.globalAlpha = f.alpha;
-      ctx.font = (f.r * 2) + 'px sans-serif';
+      ctx.translate(f.x, f.y);
+      ctx.rotate(f.rot);
+      ctx.font = f.size + 'px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(f.emoji, f.x, f.y);
+      ctx.fillText(f.emoji, 0, 0);
       ctx.restore();
+
+      // 重置出界物品
+      if (f.y > H2 + 15 || f.y < -15 || f.x < -15 || f.x > W2 + 15) {
+        f.y = -10;
+        f.x = Math.random() * W2;
+        f.vx = (Math.random() - 0.5) * 15;
+        f.vy = 12 + Math.random() * 12;
+      }
     });
 
-    // 更新风向（每3秒切换一次）
+    // 定时切换方向
     windTimer += 0.016;
-    if (windTimer > 3) {
+    if (windTimer > 2.5) {
       windTimer = 0;
-      windVx = -windVx * (0.7 + Math.random() * 0.3);
+      dirIdx = (dirIdx + 1) % windDirs.length;
+      windDir = windDirs[dirIdx];
+      windVx = windDir === 'E' ? 60 : windDir === 'W' ? -60 : 0;
+      windVy = windDir === 'S' ? 60 : windDir === 'N' ? -60 : 0;
     }
 
     t += 0.016;
@@ -842,8 +966,8 @@ function beginRound() {
   combo = 0; comboTimer = 0;
   milestone40 = false; milestone80 = false;
   roundStartTime = performance.now();
-  // 重置海风
-  windState = { active: false, vx: 0, targetVx: 0, timer: 0, interval: 4, particles: [] };
+  // 重置海风（每关随机方向+强度）
+  initWindLevel();
   resetRoundStats();
 
   // 秘籍：初始+10分
@@ -1482,9 +1606,10 @@ function mainLoop(ts) {
 
       p.x += p.vx * dt * speedMod;
       p.y += p.vy * dt * speedMod;
-      // 海风横向影响
+      // 海风影响（所有方向）
       if (windState.active) {
         p.x += windState.vx * dt;
+        p.y += windState.vy * dt;
       }
       p.rot += p.rotSpd * dt;
 
@@ -1602,6 +1727,10 @@ function mainLoop(ts) {
       }
       d.x += d.vx * dt * speedMod;
       d.y += d.vy * dt * speedMod;
+      if (windState.active) {
+        d.x += windState.vx * dt;
+        d.y += windState.vy * dt;
+      }
       d.rot += d.rotSpd * dt;
       d.glow += dt * 4;
 
@@ -1655,36 +1784,87 @@ function render() {
   // 主题背景
   drawThemeBackground();
 
-  // 海风指示器
+  // 海风特效渲染
   if (windState.active && state === 'playing') {
+    const str = windState.strength;
+    const speed = windBaseSpeed(str);
+    const norm = Math.sqrt(windState.vx * windState.vx + windState.vy * windState.vy) / speed;
+
+    // === 风迹粒子（漂浮物）===
     ctx.save();
-    // 风向粒子
-    ctx.strokeStyle = 'rgba(150,220,255,0.25)';
-    ctx.lineWidth = 1.5;
-    windState.particles.forEach(p => {
+    windState.streaks.forEach(p => {
+      ctx.save();
       ctx.globalAlpha = p.alpha;
-      ctx.beginPath();
-      ctx.moveTo(p.x, p.y);
-      ctx.lineTo(p.x - Math.sign(windState.vx) * p.len, p.y);
-      ctx.stroke();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.font = p.size + 'px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(p.emoji, 0, 0);
+      ctx.restore();
     });
-    // 强度指示图标（右上角）
-    const strength = getWindStrength();
-    const windBars = ['', '', '', ''];
-    ctx.globalAlpha = 0.7;
-    ctx.fillStyle = '#88ddff';
-    ctx.font = '14px sans-serif';
-    ctx.fillText('🌊', W - 30, 28);
-    // 风力档位
-    const pct = Math.abs(windState.vx) / (strength === 1 ? 35 : strength === 2 ? 80 : 130);
-    const filledBars = Math.ceil(pct * 3);
-    ctx.font = 'bold 12px sans-serif';
-    ctx.fillStyle = '#88ddff';
-    for (let i = 0; i < 3; i++) {
-      ctx.globalAlpha = i < filledBars ? 0.9 : 0.2;
-      ctx.fillRect(W - 55 + i * 10, 14, 7, 14);
+    ctx.restore();
+
+    // === 边缘风迹拖尾线 ===
+    ctx.save();
+    ctx.strokeStyle = 'rgba(136,221,255,0.18)';
+    ctx.lineWidth = 1;
+    const t = performance.now() / 1000;
+    const streakLen = 20 + norm * 40;
+    for (let i = 0; i < 12; i++) {
+      const offset = ((t * 80 + i * 60) % H);
+      ctx.globalAlpha = 0.15 + norm * 0.15;
+      ctx.beginPath();
+      ctx.moveTo(0, offset);
+      ctx.lineTo(windState.vx > 0 ? streakLen : (windState.vx < 0 ? -streakLen : 0), offset);
+      ctx.stroke();
     }
-    ctx.globalAlpha = 1;
+    ctx.restore();
+
+    // === 方向指示箭头（中心指向）===
+    if (norm > 0.1) {
+      ctx.save();
+      ctx.translate(CX, CY);
+      const angle = Math.atan2(windState.vy, windState.vx);
+      ctx.rotate(angle);
+      ctx.globalAlpha = 0.12 + norm * 0.1;
+      ctx.fillStyle = '#88ddff';
+      ctx.beginPath();
+      ctx.moveTo(40, 0);
+      ctx.lineTo(-10, -8);
+      ctx.lineTo(-5, 0);
+      ctx.lineTo(-10, 8);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // === 右上角风力 HUD ===
+    const dirIcon = windState.dir === 'N' ? '↑' : windState.dir === 'S' ? '↓' : windState.dir === 'E' ? '→' : '←';
+    const dirLabel = windState.dir === 'N' ? '北风' : windState.dir === 'S' ? '南风' : windState.dir === 'E' ? '东风' : '西风';
+    const windColors = ['#88ddff', '#66c2ff', '#3399ff'];
+    const windLabels = ['微风', '中风', '强风'];
+
+    ctx.save();
+    ctx.globalAlpha = 0.85;
+    // 背景条
+    ctx.fillStyle = 'rgba(0,20,50,0.75)';
+    ctx.fillRect(W - 120, 8, 110, 36);
+    ctx.strokeStyle = 'rgba(136,221,255,0.35)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(W - 120, 8, 110, 36);
+
+    // 方向文字
+    ctx.fillStyle = windColors[str - 1];
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(dirIcon + ' ' + dirLabel, W - 112, 20);
+
+    // 风力等级
+    ctx.font = '11px sans-serif';
+    ctx.fillStyle = '#aaddff';
+    ctx.fillText(windLabels[str - 1], W - 112, 38);
     ctx.restore();
   }
 
