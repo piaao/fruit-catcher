@@ -57,9 +57,153 @@ let milestone40 = false;
 let milestone80 = false;
 let roundStartTime = 0;
 
+// ---- 海风系统（柑橘岛主题）----
+let windState = { active: false, vx: 0, targetVx: 0, timer: 0, interval: 4, particles: [] };
+
+function getWindStrength() {
+  // windStrength: 0=无风, 1=微风(30px/s), 2=中风(70), 3=强风(110)
+  const lvl = LEVELS[level];
+  return lvl.windStrength || 0;
+}
+
+function updateWind(dt) {
+  const lvl = LEVELS[level];
+  const strength = getWindStrength();
+  if (strength === 0) {
+    windState.active = false;
+    windState.vx = 0;
+    return;
+  }
+  windState.active = true;
+  const maxVx = strength === 1 ? 35 : strength === 2 ? 80 : 130;
+
+  windState.timer -= dt;
+  if (windState.timer <= 0) {
+    windState.timer = windState.interval + Math.random() * 2;
+    // 随机反转方向或休息片刻
+    if (Math.random() < 0.3) {
+      windState.targetVx = 0; // 间歇
+      windState.timer *= 0.4;
+    } else {
+      windState.targetVx = (Math.random() < 0.5 ? 1 : -1) * maxVx * (0.5 + Math.random() * 0.5);
+    }
+  }
+  // 平滑过渡
+  windState.vx += (windState.targetVx - windState.vx) * Math.min(dt * 2, 1);
+
+  // 更新风向粒子
+  const strength2 = Math.abs(windState.vx) / maxVx;
+  const maxParticles = Math.ceil(strength2 * 20);
+  // 每帧随机生成/移除粒子
+  if (Math.random() < 0.4 && windState.particles.length < maxParticles) {
+    windState.particles.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      life: 0.8 + Math.random() * 0.6,
+      alpha: 0.2 + Math.random() * 0.3,
+      len: 20 + Math.random() * 30,
+    });
+  }
+  windState.particles.forEach(p => {
+    p.x += windState.vx * dt;
+    p.life -= dt;
+    p.alpha = Math.max(0, p.life * 0.5);
+  });
+  windState.particles = windState.particles.filter(p => p.life > 0 && p.x > -60 && p.x < W + 60);
+}
+
 // 追踪已出现的水果和道具（用于 NEW 标记）
 let seenFruits = new Set();
 let seenItems = new Set();
+
+// ---- 海风演示动画（关卡选择界面）----
+let windDemoRAF = null;
+let windDemoFruits = [];
+
+function initWindDemo() {
+  const canvas = document.getElementById('windDemoCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W2 = canvas.width, H2 = canvas.height;
+
+  // 初始化演示水果
+  windDemoFruits = [];
+  for (let i = 0; i < 6; i++) {
+    windDemoFruits.push({
+      x: Math.random() * W2,
+      y: Math.random() * H2,
+      vx: (Math.random() - 0.5) * 20,
+      vy: 15 + Math.random() * 15,
+      r: 4 + Math.random() * 6,
+      emoji: ['🍊', '🍋', '🍊', '🍈', '🍅', '🍊'][i],
+      alpha: 0.5 + Math.random() * 0.5,
+    });
+  }
+
+  let windVx = 60;
+  let windTimer = 0;
+  let t = 0;
+
+  function drawFrame() {
+    ctx.clearRect(0, 0, W2, H2);
+
+    // 绘制海风粒子线
+    ctx.save();
+    ctx.strokeStyle = 'rgba(136,221,255,0.2)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 8; i++) {
+      const py = (t * 40 + i * 12) % H2;
+      ctx.globalAlpha = 0.3 - py / H2 * 0.2;
+      ctx.beginPath();
+      ctx.moveTo(0, py);
+      ctx.lineTo(windVx > 0 ? 40 : -40, py + 5);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // 绘制水果
+    windDemoFruits.forEach(f => {
+      f.x += f.vx * 0.016 + windVx * 0.016;
+      f.y += f.vy * 0.016;
+      // 碰到边界反弹并换向
+      if (f.x < 0 || f.x > W2) {
+        f.vx = -f.vx + (Math.random() - 0.5) * 10;
+        f.x = f.x < 0 ? 0 : W2;
+      }
+      if (f.y > H2 + 10) {
+        f.y = -10;
+        f.x = Math.random() * W2;
+      }
+      ctx.save();
+      ctx.globalAlpha = f.alpha;
+      ctx.font = (f.r * 2) + 'px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(f.emoji, f.x, f.y);
+      ctx.restore();
+    });
+
+    // 更新风向（每3秒切换一次）
+    windTimer += 0.016;
+    if (windTimer > 3) {
+      windTimer = 0;
+      windVx = -windVx * (0.7 + Math.random() * 0.3);
+    }
+
+    t += 0.016;
+    windDemoRAF = requestAnimationFrame(drawFrame);
+  }
+
+  if (windDemoRAF) cancelAnimationFrame(windDemoRAF);
+  windDemoRAF = requestAnimationFrame(drawFrame);
+}
+
+function stopWindDemo() {
+  if (windDemoRAF) {
+    cancelAnimationFrame(windDemoRAF);
+    windDemoRAF = null;
+  }
+}
 
 // ---- 关卡选择状态 ----
 let currentSelectTheme = 0; // 当前选择的主题索引（0-4）
@@ -701,6 +845,8 @@ function beginRound() {
   combo = 0; comboTimer = 0;
   milestone40 = false; milestone80 = false;
   roundStartTime = performance.now();
+  // 重置海风
+  windState = { active: false, vx: 0, targetVx: 0, timer: 2, interval: 4, particles: [] };
   resetRoundStats();
 
   // 秘籍：初始+10分
@@ -1243,6 +1389,9 @@ function mainLoop(ts) {
     // Combo
     if (comboTimer > 0) { comboTimer -= dt; if (comboTimer <= 0) combo = 0; }
 
+    // 海风系统更新
+    updateWind(dt);
+
     // 生成水果
     spawnTimer += dt * 1000;
     if (spawnTimer >= lvl.spawnInterval) {
@@ -1336,6 +1485,10 @@ function mainLoop(ts) {
 
       p.x += p.vx * dt * speedMod;
       p.y += p.vy * dt * speedMod;
+      // 海风横向影响
+      if (windState.active) {
+        p.x += windState.vx * dt;
+      }
       p.rot += p.rotSpd * dt;
 
       if (hitTest(p)) {
@@ -1504,6 +1657,39 @@ function mainLoop(ts) {
 function render() {
   // 主题背景
   drawThemeBackground();
+
+  // 海风指示器
+  if (windState.active && state === 'playing') {
+    ctx.save();
+    // 风向粒子
+    ctx.strokeStyle = 'rgba(150,220,255,0.25)';
+    ctx.lineWidth = 1.5;
+    windState.particles.forEach(p => {
+      ctx.globalAlpha = p.alpha;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x - Math.sign(windState.vx) * p.len, p.y);
+      ctx.stroke();
+    });
+    // 强度指示图标（右上角）
+    const strength = getWindStrength();
+    const windBars = ['', '', '', ''];
+    ctx.globalAlpha = 0.7;
+    ctx.fillStyle = '#88ddff';
+    ctx.font = '14px sans-serif';
+    ctx.fillText('🌊', W - 30, 28);
+    // 风力档位
+    const pct = Math.abs(windState.vx) / (strength === 1 ? 35 : strength === 2 ? 80 : 130);
+    const filledBars = Math.ceil(pct * 3);
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillStyle = '#88ddff';
+    for (let i = 0; i < 3; i++) {
+      ctx.globalAlpha = i < filledBars ? 0.9 : 0.2;
+      ctx.fillRect(W - 55 + i * 10, 14, 7, 14);
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
 
   // 磁铁效果范围指示（大范围）
   if (activeEffects.magnet.active && state === 'playing') {
@@ -1862,6 +2048,16 @@ function renderLevelSelect() {
   document.getElementById('selectThemeStory').textContent = theme.story;
   document.getElementById('selectPlayerName').textContent = theme.player.name;
   document.getElementById('selectPlayerDesc').textContent = theme.player.desc;
+
+  // 海风演示（仅柑橘岛显示）
+  if (theme.mechanic) {
+    document.getElementById('windDemoContainer').style.display = 'block';
+    document.getElementById('windDemoLabel').textContent = '🌊 ' + theme.mechanic;
+    initWindDemo();
+  } else {
+    document.getElementById('windDemoContainer').style.display = 'none';
+    stopWindDemo();
+  }
 
   // 更新进度显示
   document.getElementById('levelSelectProgress').textContent = '已通关 ' + passedLevels.length + '/50';

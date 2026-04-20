@@ -82,6 +82,8 @@ const THEMES = [
     ],
     soundStyle: 'fresh',
     bgmStyle: 'ocean',
+    mechanic: '海风系统',
+    mechanicDesc: '🌊 海风来袭！水果不再直线掉落，会被随机方向的风力横向吹偏。注意观察风向指示器，预判走位才能精准捕获！',
   },
 
   // ---- 主题三：浆果谷（第21-30关）----
@@ -212,16 +214,16 @@ const LEVELS = [
   { name: '核果之王', target: 210, baseSpeed: 140, spawnInterval: 1620, bombChance: 0.150 },
 
   // ---- 柑橘岛（11-20关）----
-  { name: '岸边初探', target: 210, baseSpeed: 144, spawnInterval: 1580, bombChance: 0.090 },
-  { name: '柑橘港口', target: 230, baseSpeed: 148, spawnInterval: 1550, bombChance: 0.095 },
-  { name: '柠檬小径', target: 250, baseSpeed: 152, spawnInterval: 1520, bombChance: 0.100 },
-  { name: '金色果园', target: 270, baseSpeed: 156, spawnInterval: 1490, bombChance: 0.105 },
-  { name: '海上风暴', target: 290, baseSpeed: 160, spawnInterval: 1460, bombChance: 0.110 },
-  { name: '沃柑丘陵', target: 310, baseSpeed: 164, spawnInterval: 1430, bombChance: 0.115 },
-  { name: '芦柑山谷', target: 330, baseSpeed: 168, spawnInterval: 1400, bombChance: 0.120 },
-  { name: '柚子海滩', target: 350, baseSpeed: 172, spawnInterval: 1370, bombChance: 0.125 },
-  { name: '暮色港口', target: 370, baseSpeed: 176, spawnInterval: 1340, bombChance: 0.128 },
-  { name: '柑橘之王', target: 385, baseSpeed: 180, spawnInterval: 1310, bombChance: 0.130 },
+  { name: '岸边初探', target: 210, baseSpeed: 144, spawnInterval: 1580, bombChance: 0.090, windStrength: 1 },
+  { name: '柑橘港口', target: 230, baseSpeed: 148, spawnInterval: 1550, bombChance: 0.095, windStrength: 1 },
+  { name: '柠檬小径', target: 250, baseSpeed: 152, spawnInterval: 1520, bombChance: 0.100, windStrength: 1 },
+  { name: '金色果园', target: 270, baseSpeed: 156, spawnInterval: 1490, bombChance: 0.105, windStrength: 1 },
+  { name: '海上风暴', target: 290, baseSpeed: 160, spawnInterval: 1460, bombChance: 0.110, windStrength: 1 },
+  { name: '沃柑丘陵', target: 310, baseSpeed: 164, spawnInterval: 1430, bombChance: 0.115, windStrength: 2 },
+  { name: '芦柑山谷', target: 330, baseSpeed: 168, spawnInterval: 1400, bombChance: 0.120, windStrength: 2 },
+  { name: '柚子海滩', target: 350, baseSpeed: 172, spawnInterval: 1370, bombChance: 0.125, windStrength: 2 },
+  { name: '暮色港口', target: 370, baseSpeed: 176, spawnInterval: 1340, bombChance: 0.128, windStrength: 2 },
+  { name: '柑橘之王', target: 385, baseSpeed: 180, spawnInterval: 1310, bombChance: 0.130, windStrength: 2 },
 
   // ---- 浆果谷（21-30关）----
   { name: '谷口迷雾', target: 400, baseSpeed: 184, spawnInterval: 1280, bombChance: 0.130 },
