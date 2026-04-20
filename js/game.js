@@ -61,13 +61,12 @@ let roundStartTime = 0;
 let windState = { active: false, vx: 0, targetVx: 0, timer: 0, interval: 4, particles: [] };
 
 function getWindStrength() {
-  // windStrength: 0=无风, 1=微风(30px/s), 2=中风(70), 3=强风(110)
+  // windStrength: 0=无风, 1=微风(35px/s), 2=中风(80-130px/s), 3=强风
   const lvl = LEVELS[level];
   return lvl.windStrength || 0;
 }
 
 function updateWind(dt) {
-  const lvl = LEVELS[level];
   const strength = getWindStrength();
   if (strength === 0) {
     windState.active = false;
@@ -78,29 +77,27 @@ function updateWind(dt) {
   const maxVx = strength === 1 ? 35 : strength === 2 ? 80 : 130;
 
   windState.timer -= dt;
+  // 首次或定时切换风向（开局 timer=0，立即触发）
   if (windState.timer <= 0) {
     windState.timer = windState.interval + Math.random() * 2;
-    // 随机反转方向或休息片刻
     if (Math.random() < 0.3) {
-      windState.targetVx = 0; // 间歇
+      windState.targetVx = 0;
       windState.timer *= 0.4;
     } else {
       windState.targetVx = (Math.random() < 0.5 ? 1 : -1) * maxVx * (0.5 + Math.random() * 0.5);
     }
   }
-  // 平滑过渡
   windState.vx += (windState.targetVx - windState.vx) * Math.min(dt * 2, 1);
 
-  // 更新风向粒子
+  // 更新风向粒子（更密集）
   const strength2 = Math.abs(windState.vx) / maxVx;
-  const maxParticles = Math.ceil(strength2 * 20);
-  // 每帧随机生成/移除粒子
-  if (Math.random() < 0.4 && windState.particles.length < maxParticles) {
+  const maxParticles = Math.ceil(strength2 * 25) + 5;
+  if (Math.random() < 0.5 && windState.particles.length < maxParticles) {
     windState.particles.push({
       x: Math.random() * W,
       y: Math.random() * H,
       life: 0.8 + Math.random() * 0.6,
-      alpha: 0.2 + Math.random() * 0.3,
+      alpha: 0.3 + Math.random() * 0.4,
       len: 20 + Math.random() * 30,
     });
   }
@@ -846,7 +843,7 @@ function beginRound() {
   milestone40 = false; milestone80 = false;
   roundStartTime = performance.now();
   // 重置海风
-  windState = { active: false, vx: 0, targetVx: 0, timer: 2, interval: 4, particles: [] };
+  windState = { active: false, vx: 0, targetVx: 0, timer: 0, interval: 4, particles: [] };
   resetRoundStats();
 
   // 秘籍：初始+10分
