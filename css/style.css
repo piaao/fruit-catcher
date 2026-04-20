@@ -30,6 +30,12 @@ canvas {
   z-index: 1;
 }
 
+canvas.wind-demo-canvas {
+  position: static;
+  width: 220px;
+  height: 80px;
+}
+
 /* ---- HUD ---- */
 #hud {
   position: absolute;
@@ -1256,6 +1262,29 @@ canvas {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* ---- 海风演示（关卡选择界面）---- */
+.wind-demo-container {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.wind-demo-label {
+  font-size: 12px;
+  color: #88ddff;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.wind-demo-canvas {
+  width: 220px;
+  height: 80px;
+  border-radius: 8px;
+  background: rgba(0, 40, 80, 0.6);
+  border: 1px solid rgba(136, 221, 255, 0.3);
+  display: block;
 }
 
 /* ---- 响应式 ---- */
