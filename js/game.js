@@ -1188,53 +1188,12 @@ function spawnProjectile() {
   else if (side === 2) { sx = Math.random() * W; sy = H + m; }
   else { sx = -m; sy = Math.random() * H; }
 
-  // 目标点：角色附近加散布
-  const tx = CX + (Math.random() - 0.5) * 160;
-  const ty = CY + (Math.random() - 0.5) * 160;
-  const dx = tx - sx, dy = ty - sy;
+  // 初速对准角色
+  const dx = CX - sx + (Math.random() - 0.5) * 160;
+  const dy = CY - sy + (Math.random() - 0.5) * 160;
   const len = Math.hypot(dx, dy);
-
-  // 基础初速（对准角色）
-  let vx = (dx / len) * speed;
-  let vy = (dy / len) * speed;
-
-  // 有风时：数值积分精确补偿，使水果最终落到角色附近
-  // 水果运动模型：重力 GY = 200 加速度 + 恒定风力 windState.vx/vy
-  // 策略：先估算落地时间 T，再用风偏移修正 vx 使落点对准角色
-  if (windState.active) {
-    const GY = 200; // 重力加速度(px/s²)，与游戏内一致
-    const catchR = 55; // 角色捕获半径
-    const catchX = CX, catchY = CY;
-
-    // 估算落地时间（精确二次方程求根）
-    // sy + vy0*t + 0.5*GY*t² = catchY
-    const a = 0.5 * GY;
-    const b = vy;
-    const c = sy - catchY;
-    const disc = b * b - 4 * a * c;
-    let T;
-    if (disc < 0) {
-      T = Math.abs((catchY - sy) / vy); // 竖直方向飞不到，用竖直估算
-    } else {
-      const t1 = (-b + Math.sqrt(disc)) / (2 * a);
-      const t2 = (-b - Math.sqrt(disc)) / (2 * a);
-      T = Math.max(t1, t2); // 取较大的正解（落下来而非飞上去）
-    }
-    T = Math.max(T, 0.3); // 至少0.3秒，防止近距离水果T过小
-
-    // 飞行 T 秒后，风造成 x 方向总偏移 = windVx * T
-    // 若落点 x0 = sx + vx * T + windVx * T 超出 catchR，则修正 vx
-    const landX = sx + vx * T + windState.vx * T;
-    const drift = landX - catchX;
-    // 修正：调整 vx 使落点回正，保留 8% 漂移感
-    const COMP = 0.92;
-    if (Math.abs(drift) > 5) {
-      vx = (sx - catchX + vx * T - drift * COMP) / T;
-      // 限制最大横向速度（不超过竖直速度的1.5倍）
-      const maxVx = Math.abs(vy) * 1.5 + speed;
-      if (Math.abs(vx) > maxVx) vx = Math.sign(vx) * maxVx;
-    }
-  }
+  const vx = (dx / len) * speed;
+  const vy = (dy / len) * speed;
 
   projectiles.push({
     x: sx, y: sy, vx, vy,
@@ -1638,13 +1597,32 @@ function mainLoop(ts) {
         return;
       }
 
+      // 海风弯曲轨迹：把速度向量逐渐转向角色方向，风力决定转向强度
+      if (windState.active) {
+        const str = windState.strength;
+        // curveFactor: 无风=0(直线) → 风越大曲线越强
+        const curveFactor = str === 1 ? 0.12 : str === 2 ? 0.22 : 0.35;
+        // 目标方向：水果→角色
+        const tdx = CX - p.x, tdy = CY - p.y;
+        const tlen = Math.hypot(tdx, tdy);
+        if (tlen > 1) {
+          const tnx = tdx / tlen, tny = tdy / tlen;  // 目标单位向量
+          // 当前速度的朝向
+          const cv = Math.hypot(p.vx, p.vy);
+          if (cv > 0.1) {
+            const cnx = p.vx / cv, cny = p.vy / cv;
+            // 插值转向（曲线 = lerp toward target direction）
+            const nx = cnx + (tnx - cnx) * curveFactor;
+            const ny = cny + (tny - cny) * curveFactor;
+            const nlen = Math.hypot(nx, ny);
+            p.vx = (nx / nlen) * cv;
+            p.vy = (ny / nlen) * cv;
+          }
+        }
+      }
+
       p.x += p.vx * dt * speedMod;
       p.y += p.vy * dt * speedMod;
-      // 海风影响（所有方向）
-      if (windState.active) {
-        p.x += windState.vx * dt;
-        p.y += windState.vy * dt;
-      }
       p.rot += p.rotSpd * dt;
 
       if (hitTest(p)) {
@@ -1759,12 +1737,27 @@ function mainLoop(ts) {
         d.alpha -= dt * 5;
         return;
       }
+      // 道具也受风力弯曲（曲线弱一些）
+      if (windState.active) {
+        const str = windState.strength;
+        const curveFactor = str === 1 ? 0.06 : str === 2 ? 0.12 : 0.20;
+        const tdx = CX - d.x, tdy = CY - d.y;
+        const tlen = Math.hypot(tdx, tdy);
+        if (tlen > 1) {
+          const tnx = tdx / tlen, tny = tdy / tlen;
+          const dv = Math.hypot(d.vx, d.vy);
+          if (dv > 0.1) {
+            const dnx = d.vx / dv, dny = d.vy / dv;
+            const nx = dnx + (tnx - dnx) * curveFactor;
+            const ny = dny + (tny - dny) * curveFactor;
+            const nlen = Math.hypot(nx, ny);
+            d.vx = (nx / nlen) * dv;
+            d.vy = (ny / nlen) * dv;
+          }
+        }
+      }
       d.x += d.vx * dt * speedMod;
       d.y += d.vy * dt * speedMod;
-      if (windState.active) {
-        d.x += windState.vx * dt;
-        d.y += windState.vy * dt;
-      }
       d.rot += d.rotSpd * dt;
       d.glow += dt * 4;
 
