@@ -1198,16 +1198,26 @@ function spawnProjectile() {
   let vx = (dx / len) * speed;
   let vy = (dy / len) * speed;
 
-  // 有风时：初速反向补偿风力，使水果最终仍能漂到角色身边
-  // 估算飞行时间 t ≈ 距离 / speed，补偿量 = 风速 * t
+  // 有风时：精确补偿风力偏移，使水果最终落点仍在角色身边
+  // 风每帧施加 windState.vx/vy * dt 的位移，飞行 T 秒后总偏移 = wind * T
+  // 因此把初速减去 wind（补偿系数0.9保留10%漂移感觉），重新求解：
+  //   新起始方向向量 = 原始目标方向 * speed - wind * COMP
+  // 再 normalize 后乘回 speed 保持速度不变
   if (windState.active) {
-    const dist = Math.hypot(tx - sx, ty - sy);
-    const flightTime = dist / speed;          // 粗估飞行时长(s)
-    // 补偿：把风在飞行中积累的偏移量折算回初速
-    vx -= windState.vx * flightTime / (flightTime * 1.2);
-    vy -= windState.vy * flightTime / (flightTime * 1.2);
-    // 等价简化：vx -= windState.vx / 1.2;  vy -= windState.vy / 1.2;
-    // 保留20%残留偏移，让玩家能感受到风的牵引感而不是完全抵消
+    const COMP = 0.92; // 补偿比例，保留 8% 漂移感
+    // 从起始点到目标点，若无风的初速为 (vx0,vy0)，
+    // 在飞行时间 T = dist/speed 内风累积偏移 wind*T，
+    // 所以目标应调整为 (tx - wind*T, ty - wind*T)，即修正目标点
+    const dist = Math.hypot(dx, dy);
+    const T = dist / speed;
+    const cx2 = tx - windState.vx * T * COMP;
+    const cy2 = ty - windState.vy * T * COMP;
+    const dx2 = cx2 - sx, dy2 = cy2 - sy;
+    const len2 = Math.hypot(dx2, dy2);
+    if (len2 > 1) {
+      vx = (dx2 / len2) * speed;
+      vy = (dy2 / len2) * speed;
+    }
   }
 
   projectiles.push({
