@@ -903,6 +903,34 @@ canvas.wind-demo-canvas {
 .preview-fruit-score.fruit-medium { color: #ffd700; }
 .preview-fruit-score.fruit-fast { color: #ff6b6b; }
 
+/* 主题机制描述 */
+.preview-mechanic-info {
+  background: rgba(150,100,255,0.15);
+  border: 1px solid rgba(150,100,255,0.4);
+  border-radius: 10px;
+  padding: 10px 16px;
+  max-width: 360px;
+  width: 100%;
+  font-size: 13px;
+  color: #c8b0ff;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+/* 传送门信息 */
+.preview-portal-info {
+  background: rgba(128,96,255,0.2);
+  border: 1px solid rgba(128,96,255,0.5);
+  border-radius: 10px;
+  padding: 8px 14px;
+  max-width: 360px;
+  width: 100%;
+  font-size: 13px;
+  color: #a080ff;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
 /* 道具列表 */
 .preview-items {
   background: rgba(255,255,255,0.05);

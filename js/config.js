@@ -121,6 +121,8 @@ const THEMES = [
     ],
     soundStyle: 'magic',
     bgmStyle: 'mystic',
+    mechanic: '传送门系统',
+    mechanicDesc: '🌀 传送门开启！水果进入一扇门会从另一扇门飞出，预判传送轨迹，精准捕获！',
   },
 
   // ---- 主题四：热带雨林（第31-40关）----
@@ -226,16 +228,16 @@ const LEVELS = [
   { name: '柑橘之王', target: 385, baseSpeed: 180, spawnInterval: 1310, bombChance: 0.130, windStrength: 3 },
 
   // ---- 浆果谷（21-30关）----
-  { name: '谷口迷雾', target: 400, baseSpeed: 184, spawnInterval: 1280, bombChance: 0.130 },
-  { name: '草莓花田', target: 420, baseSpeed: 188, spawnInterval: 1250, bombChance: 0.135 },
-  { name: '蓝莓灌木', target: 440, baseSpeed: 192, spawnInterval: 1220, bombChance: 0.140 },
-  { name: '桑葚小径', target: 460, baseSpeed: 196, spawnInterval: 1190, bombChance: 0.145 },
-  { name: '精灵树屋', target: 480, baseSpeed: 200, spawnInterval: 1160, bombChance: 0.150 },
-  { name: '猕猴桃溪', target: 500, baseSpeed: 204, spawnInterval: 1130, bombChance: 0.155 },
-  { name: '树莓密林', target: 520, baseSpeed: 208, spawnInterval: 1100, bombChance: 0.160 },
-  { name: '葡萄藤架', target: 540, baseSpeed: 212, spawnInterval: 1070, bombChance: 0.165 },
-  { name: '圣女果园', target: 560, baseSpeed: 216, spawnInterval: 1040, bombChance: 0.168 },
-  { name: '浆果之王', target: 580, baseSpeed: 220, spawnInterval: 1010, bombChance: 0.170 },
+  { name: '谷口迷雾', target: 400, baseSpeed: 184, spawnInterval: 1280, bombChance: 0.130, portalStrength: 1 },
+  { name: '草莓花田', target: 420, baseSpeed: 188, spawnInterval: 1250, bombChance: 0.135, portalStrength: 1 },
+  { name: '蓝莓灌木', target: 440, baseSpeed: 192, spawnInterval: 1220, bombChance: 0.140, portalStrength: 2 },
+  { name: '桑葚小径', target: 460, baseSpeed: 196, spawnInterval: 1190, bombChance: 0.145, portalStrength: 2 },
+  { name: '精灵树屋', target: 480, baseSpeed: 200, spawnInterval: 1160, bombChance: 0.150, portalStrength: 2 },
+  { name: '猕猴桃溪', target: 500, baseSpeed: 204, spawnInterval: 1130, bombChance: 0.155, portalStrength: 2 },
+  { name: '树莓密林', target: 520, baseSpeed: 208, spawnInterval: 1100, bombChance: 0.160, portalStrength: 3 },
+  { name: '葡萄藤架', target: 540, baseSpeed: 212, spawnInterval: 1070, bombChance: 0.165, portalStrength: 3 },
+  { name: '圣女果园', target: 560, baseSpeed: 216, spawnInterval: 1040, bombChance: 0.168, portalStrength: 3 },
+  { name: '浆果之王', target: 580, baseSpeed: 220, spawnInterval: 1010, bombChance: 0.170, portalStrength: 3 },
 
   // ---- 热带雨林（31-40关）----
   { name: '雨林边缘', target: 600, baseSpeed: 224, spawnInterval: 990,  bombChance: 0.170 },

@@ -990,3 +990,71 @@ function playMilestoneSound(threshold) {
     o3.start(now + 0.1); o3.stop(now + dur);
   }
 }
+
+// ==================== 传送门音效（浆果谷主题） ====================
+
+/** 传送门出现音效 - 魔法展开感 */
+function playPortalAppearSound() {
+  ensureAudio();
+  const ac = audioCtx, now = ac.currentTime;
+  // 空灵的上升音
+  [400, 500, 600, 800, 1000].forEach((freq, i) => {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.type = 'sine';
+    const t = now + i * 0.06;
+    o.frequency.setValueAtTime(freq * 0.5, t);
+    o.frequency.exponentialRampToValueAtTime(freq, t + 0.1);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.15, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    o.start(t); o.stop(t + 0.35);
+  });
+  // 泛音层
+  const o2 = ac.createOscillator(), g2 = ac.createGain();
+  o2.connect(g2); g2.connect(ac.destination);
+  o2.type = 'triangle';
+  o2.frequency.setValueAtTime(1200, now + 0.1);
+  o2.frequency.exponentialRampToValueAtTime(2000, now + 0.4);
+  g2.gain.setValueAtTime(0, now + 0.1);
+  g2.gain.linearRampToValueAtTime(0.08, now + 0.15);
+  g2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+  o2.start(now + 0.1); o2.stop(now + 0.55);
+}
+
+/** 传送门传送音效 - 嗖的一下穿越感 */
+function playPortalSound() {
+  ensureAudio();
+  const ac = audioCtx, now = ac.currentTime;
+  // 快速的频率下滑 + 延迟回声
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.connect(g); g.connect(ac.destination);
+  o.type = 'sine';
+  o.frequency.setValueAtTime(1500, now);
+  o.frequency.exponentialRampToValueAtTime(300, now + 0.15);
+  g.gain.setValueAtTime(0.25, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+  o.start(now); o.stop(now + 0.25);
+  
+  // 延迟回声
+  const o2 = ac.createOscillator(), g2 = ac.createGain();
+  o2.connect(g2); g2.connect(ac.destination);
+  o2.type = 'triangle';
+  o2.frequency.setValueAtTime(1200, now + 0.08);
+  o2.frequency.exponentialRampToValueAtTime(200, now + 0.25);
+  g2.gain.setValueAtTime(0, now + 0.08);
+  g2.gain.linearRampToValueAtTime(0.12, now + 0.12);
+  g2.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+  o2.start(now + 0.08); o2.stop(now + 0.35);
+  
+  // 高频闪烁
+  const ns = ac.createBufferSource();
+  ns.buffer = createNoiseBuffer(0.1);
+  const f = ac.createBiquadFilter(), g3 = ac.createGain();
+  ns.connect(f); f.connect(g3); g3.connect(ac.destination);
+  f.type = 'highpass';
+  f.frequency.value = 4000;
+  g3.gain.setValueAtTime(0.15, now);
+  g3.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+  ns.start(now); ns.stop(now + 0.1);
+}

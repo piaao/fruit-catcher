@@ -58,7 +58,6 @@ let milestone80 = false;
 let roundStartTime = 0;
 
 // ---- 海风系统（柑橘岛主题）----
-// ---- 海风系统（柑橘岛主题）----
 let windState = {
   active: false,
   vx: 0, vy: 0,       // 当前风向速度向量
@@ -215,6 +214,414 @@ function stopWindSound() {
       windState.blowSound.src.stop();
     } catch(e) {}
     windState.blowSound = null;
+  }
+}
+
+// ---- 传送门系统（浆果谷主题）----
+let portalState = {
+  active: false,
+  portals: [],         // [{id, x, y, dx, dy, pairId, rotation, particles, timer, teleported}]
+  strength: 0,         // 0=无, 1=一级(2对门), 2=二级(3对门), 3=三级(4对门)
+  particles: [],       // 传送门周围的粒子效果
+};
+
+// 获取当前关卡的传送门强度
+function getPortalStrength() {
+  const lvl = LEVELS[level];
+  return lvl.portalStrength || 0;
+}
+
+// 生成传送门对
+function generatePortalPair(id, pairId) {
+  // 在画布边缘附近随机生成传送门
+  const margin = 100;
+  const side = Math.floor(Math.random() * 4);
+  let x, y, dx, dy;
+  
+  // 出射方向朝向屏幕中心
+  switch(side) {
+    case 0: // 顶部
+      x = margin + Math.random() * (W - margin * 2);
+      y = margin + Math.random() * 80;
+      dx = (CX - x) / Math.hypot(CX - x, CY - y) || 0;
+      dy = (CY - y) / Math.hypot(CX - x, CY - y) || 0;
+      break;
+    case 1: // 右侧
+      x = W - margin - Math.random() * 80;
+      y = margin + Math.random() * (H - margin * 2);
+      dx = (CX - x) / Math.hypot(CX - x, CY - y) || 0;
+      dy = (CY - y) / Math.hypot(CX - x, CY - y) || 0;
+      break;
+    case 2: // 底部
+      x = margin + Math.random() * (W - margin * 2);
+      y = H - margin - Math.random() * 80;
+      dx = (CX - x) / Math.hypot(CX - x, CY - y) || 0;
+      dy = (CY - y) / Math.hypot(CX - x, CY - y) || 0;
+      break;
+    case 3: // 左侧
+      x = margin + Math.random() * 80;
+      y = margin + Math.random() * (H - margin * 2);
+      dx = (CX - x) / Math.hypot(CX - x, CY - y) || 0;
+      dy = (CY - y) / Math.hypot(CX - x, CY - y) || 0;
+      break;
+  }
+  
+  return {
+    id,
+    x,
+    y,
+    dx,
+    dy,
+    pairId,
+    rotation: Math.random() * Math.PI * 2,
+    timer: 0,
+    teleported: false,
+    particles: [],
+  };
+}
+
+// 每关初始化时调用：生成传送门对
+function initPortalsLevel() {
+  const str = getPortalStrength();
+  if (str === 0) {
+    portalState.active = false;
+    portalState.portals = [];
+    portalState.particles = [];
+    return;
+  }
+  
+  portalState.active = true;
+  portalState.strength = str;
+  portalState.portals = [];
+  
+  // 生成 N 对传送门
+  const pairCount = str === 1 ? 2 : str === 2 ? 3 : 4;
+  let portalId = 0;
+  
+  for (let i = 0; i < pairCount; i++) {
+    const id1 = portalId++;
+    const id2 = portalId++;
+    const portal1 = generatePortalPair(id1, id2);
+    const portal2 = generatePortalPair(id2, id1);
+    portalState.portals.push(portal1);
+    portalState.portals.push(portal2);
+  }
+  
+  // 播放传送门出现音效
+  if (typeof playPortalAppearSound === 'function') playPortalAppearSound();
+}
+
+// 更新传送门系统（每帧）
+function updatePortals(dt) {
+  if (!portalState.active) return;
+  
+  const time = performance.now() / 1000;
+  
+  portalState.portals.forEach(p => {
+    // 门环旋转动画
+    p.rotation += dt * 2.5;
+    p.timer += dt;
+    
+    // 传送门粒子效果
+    if (Math.random() < 0.3) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 30 + Math.random() * 20;
+      const px = p.x + Math.cos(angle) * dist;
+      const py = p.y + Math.sin(angle) * dist;
+      p.particles.push({
+        x: px,
+        y: py,
+        targetX: p.x,
+        targetY: p.y,
+        life: 1,
+        size: 2 + Math.random() * 3,
+        color: Math.random() < 0.5 ? '#8060ff' : '#60d0ff',
+      });
+    }
+    
+    // 更新粒子向中心移动
+    p.particles.forEach(part => {
+      part.x += (part.targetX - part.x) * dt * 3;
+      part.y += (part.targetY - part.y) * dt * 3;
+      part.life -= dt;
+    });
+    p.particles = p.particles.filter(part => part.life > 0);
+  });
+}
+
+// 绘制传送门
+function drawPortals() {
+  if (!portalState.active) return;
+  
+  const time = performance.now() / 1000;
+  
+  portalState.portals.forEach((p, idx) => {
+    const isEven = idx % 2 === 0;
+    const primaryColor = isEven ? '#8060ff' : '#60d0ff';
+    const secondaryColor = isEven ? '#a080ff' : '#80e8ff';
+    
+    // 绘制外圈光环
+    const outerGlow = ctx.createRadialGradient(p.x, p.y, 20, p.x, p.y, 50);
+    outerGlow.addColorStop(0, primaryColor + '40');
+    outerGlow.addColorStop(1, primaryColor + '00');
+    ctx.fillStyle = outerGlow;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 50, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // 绘制传送门圆环
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rotation);
+    
+    // 外环
+    ctx.beginPath();
+    ctx.arc(0, 0, 32, 0, Math.PI * 2);
+    ctx.strokeStyle = primaryColor;
+    ctx.lineWidth = 4;
+    ctx.shadowColor = primaryColor;
+    ctx.shadowBlur = 15;
+    ctx.stroke();
+    
+    // 内环（反向旋转）
+    ctx.rotate(-p.rotation * 2);
+    ctx.beginPath();
+    ctx.arc(0, 0, 24, 0, Math.PI * 2);
+    ctx.strokeStyle = secondaryColor;
+    ctx.lineWidth = 3;
+    ctx.shadowBlur = 10;
+    ctx.stroke();
+    
+    // 中心星尘效果
+    for (let i = 0; i < 3; i++) {
+      const angle = (time * 2 + i * (Math.PI * 2 / 3)) % (Math.PI * 2);
+      const dist = 12 + Math.sin(time * 3 + i) * 4;
+      const sx = Math.cos(angle) * dist;
+      const sy = Math.sin(angle) * dist;
+      ctx.fillStyle = '#fff';
+      ctx.globalAlpha = 0.6 + Math.sin(time * 5 + i) * 0.3;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    ctx.restore();
+    
+    // 绘制吸粒粒子
+    p.particles.forEach(part => {
+      ctx.save();
+      ctx.globalAlpha = part.life * 0.8;
+      ctx.fillStyle = part.color;
+      ctx.shadowColor = part.color;
+      ctx.shadowBlur = 5;
+      ctx.beginPath();
+      ctx.arc(part.x, part.y, part.size * part.life, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+    
+    // 绘制传送门连接线（配对门之间）
+    if (isEven && idx + 1 < portalState.portals.length) {
+      const pair = portalState.portals[idx + 1];
+      ctx.save();
+      ctx.globalAlpha = 0.15 + Math.sin(time * 2) * 0.05;
+      ctx.strokeStyle = '#a080ff';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 8]);
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(pair.x, pair.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+  });
+}
+
+// 水果经过传送门时触发
+function checkPortalTeleport(proj) {
+  if (!portalState.active || proj.teleported) return;
+  
+  const portalRadius = 35;
+  
+  for (const portal of portalState.portals) {
+    const d = Math.hypot(proj.x - portal.x, proj.y - portal.y);
+    
+    if (d < portalRadius + proj.def.radius) {
+      // 找到配对门
+      const pair = portalState.portals.find(p => p.id === portal.pairId);
+      if (pair) {
+        // 从配对门传出
+        const offsetDist = 40;
+        proj.x = pair.x + pair.dx * offsetDist;
+        proj.y = pair.y + pair.dy * offsetDist;
+        
+        // 保持原速度方向不变，稍微强化
+        const speed = Math.hypot(proj.vx, proj.vy) * 1.1;
+        proj.vx = proj.vx / Math.abs(proj.vx || 1) * speed * 0.8 + pair.dx * speed * 0.4;
+        proj.vy = proj.vy / Math.abs(proj.vy || 1) * speed * 0.8 + pair.dy * speed * 0.4;
+        
+        // 防止重复传送
+        proj.teleported = true;
+        setTimeout(() => { if (proj) proj.teleported = false; }, 800);
+        
+        // 进入特效
+        spawnParticles(portal.x, portal.y, '#8060ff', 12, false);
+        
+        // 传出特效
+        spawnParticles(pair.x, pair.y, '#60d0ff', 15, false);
+        spawnParticles(pair.x, pair.y, '#fff', 8, false);
+        
+        // 播放传送音效
+        if (typeof playPortalSound === 'function') playPortalSound();
+        
+        return;
+      }
+    }
+  }
+}
+
+// ---- 传送门演示动画（关卡选择界面）----
+let portalDemoRAF = null;
+let portalDemoItems = [];
+
+function initPortalDemo() {
+  const canvas = document.getElementById('portalDemoCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W2 = canvas.width, H2 = canvas.height;
+  
+  // 生成传送门对
+  const portals = [
+    { x: 50, y: H2 / 2, color: '#8060ff', pairX: W2 - 50, pairY: H2 / 2 },
+    { x: W2 / 2, y: 40, color: '#60d0ff', pairX: W2 / 2, pairY: H2 - 40 },
+  ];
+  
+  // 生成传送的水果
+  portalDemoItems = [];
+  for (let i = 0; i < 3; i++) {
+    portalDemoItems.push({
+      x: portals[0].x,
+      y: portals[0].y,
+      targetX: portals[0].pairX,
+      targetY: portals[0].pairY,
+      phase: i * 0.8, // 不同阶段
+      active: true,
+      emoji: ['🍓', '🫐', '🍇'][i],
+    });
+  }
+  
+  let t = 0;
+  let portalRotation = 0;
+  
+  function drawFrame() {
+    ctx.clearRect(0, 0, W2, H2);
+    t += 0.016;
+    portalRotation += 0.03;
+    
+    // 绘制传送门
+    portals.forEach((p, idx) => {
+      const primaryColor = p.color;
+      const secondaryColor = idx === 0 ? '#a080ff' : '#80e8ff';
+      
+      // 绘制外圈
+      const glow = ctx.createRadialGradient(p.x, p.y, 15, p.x, p.y, 40);
+      glow.addColorStop(0, primaryColor + '60');
+      glow.addColorStop(1, primaryColor + '00');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 40, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // 外环
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(portalRotation);
+      ctx.beginPath();
+      ctx.arc(0, 0, 25, 0, Math.PI * 2);
+      ctx.strokeStyle = primaryColor;
+      ctx.lineWidth = 3;
+      ctx.shadowColor = primaryColor;
+      ctx.shadowBlur = 10;
+      ctx.stroke();
+      
+      // 内环
+      ctx.rotate(-portalRotation * 2);
+      ctx.beginPath();
+      ctx.arc(0, 0, 18, 0, Math.PI * 2);
+      ctx.strokeStyle = secondaryColor;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      ctx.restore();
+    });
+    
+    // 绘制传送的水果
+    portalDemoItems.forEach(item => {
+      const progress = ((t + item.phase) % 3) / 3;
+      const sourcePortal = portals[0];
+      const targetPortal = portals[0];
+      
+      if (progress < 0.4) {
+        // 向传送门移动
+        const p = progress / 0.4;
+        item.x = sourcePortal.x + (sourcePortal.x - 30 - sourcePortal.x) * p;
+        item.y = sourcePortal.y;
+        item.active = true;
+      } else if (progress < 0.6) {
+        // 传送中（消失）
+        item.active = false;
+      } else {
+        // 从另一扇门出现
+        const p = (progress - 0.6) / 0.4;
+        item.x = targetPortal.pairX + (targetPortal.pairX + 30 - targetPortal.pairX) * (1 - p);
+        item.y = targetPortal.pairY;
+        item.active = true;
+      }
+      
+      if (item.active) {
+        ctx.save();
+        ctx.globalAlpha = 0.9;
+        ctx.font = '20px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(item.emoji, item.x, item.y);
+        ctx.restore();
+      }
+    });
+    
+    // 绘制连接虚线
+    ctx.save();
+    ctx.globalAlpha = 0.2;
+    ctx.strokeStyle = '#a080ff';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(portals[0].x, portals[0].y);
+    ctx.lineTo(portals[0].pairX, portals[0].pairY);
+    ctx.stroke();
+    ctx.restore();
+    
+    // 绘制说明文字
+    ctx.save();
+    ctx.fillStyle = 'rgba(150,120,255,0.9)';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🌀 传送门 × 2对', W2 / 2, H2 - 10);
+    ctx.restore();
+    
+    portalDemoRAF = requestAnimationFrame(drawFrame);
+  }
+  
+  if (portalDemoRAF) cancelAnimationFrame(portalDemoRAF);
+  portalDemoRAF = requestAnimationFrame(drawFrame);
+}
+
+function stopPortalDemo() {
+  if (portalDemoRAF) {
+    cancelAnimationFrame(portalDemoRAF);
+    portalDemoRAF = null;
   }
 }
 
@@ -590,6 +997,24 @@ function showLevelPreview() {
   document.getElementById('previewThemeName').textContent = theme.name + ' · 第' + (level + 1) + '关';
   document.getElementById('previewLevelName').textContent = lvl.name;
   document.getElementById('previewTarget').textContent = lvl.target;
+  
+  // 显示主题机制描述（如果有）
+  const mechanicInfo = document.getElementById('previewMechanicInfo');
+  if (theme.mechanicDesc) {
+    mechanicInfo.textContent = theme.mechanicDesc;
+    mechanicInfo.style.display = 'block';
+  } else {
+    mechanicInfo.style.display = 'none';
+  }
+  
+  // 显示传送门强度（如果有）
+  const portalInfo = document.getElementById('previewPortalInfo');
+  if (lvl.portalStrength && lvl.portalStrength > 0) {
+    portalInfo.textContent = '🌀 传送门：' + lvl.portalStrength + '级（' + (lvl.portalStrength === 1 ? '2对' : lvl.portalStrength === 2 ? '3对' : '4对') + '）';
+    portalInfo.style.display = 'block';
+  } else {
+    portalInfo.style.display = 'none';
+  }
 
   // 计算难度星级（基于速度和炸弹概率）
   const speedScore = (lvl.baseSpeed - 104) / (300 - 104);
@@ -958,6 +1383,8 @@ function beginRound() {
   roundStartTime = performance.now();
   // 重置海风（每关随机方向+强度）
   initWindLevel();
+  // 初始化传送门（浆果谷主题）
+  initPortalsLevel();
   resetRoundStats();
 
   // 秘籍：初始+10分
@@ -1505,6 +1932,8 @@ function mainLoop(ts) {
 
     // 海风系统更新
     updateWind(dt);
+    // 传送门系统更新
+    updatePortals(dt);
 
     // 生成水果
     spawnTimer += dt * 1000;
@@ -1624,6 +2053,9 @@ function mainLoop(ts) {
       p.x += p.vx * dt * speedMod;
       p.y += p.vy * dt * speedMod;
       p.rot += p.rotSpd * dt;
+      
+      // 传送门检测（水果经过传送门时触发传送）
+      checkPortalTeleport(p);
 
       if (hitTest(p)) {
         p.eaten = true;
@@ -1810,6 +2242,11 @@ function mainLoop(ts) {
 function render() {
   // 主题背景
   drawThemeBackground();
+  
+  // 传送门渲染（浆果谷主题）
+  if (portalState.active) {
+    drawPortals();
+  }
 
   // 海风特效渲染
   if (windState.active && state === 'playing') {
@@ -2255,12 +2692,27 @@ function renderLevelSelect() {
 
   // 海风演示（仅柑橘岛显示）
   if (theme.mechanic) {
-    document.getElementById('windDemoContainer').style.display = 'block';
-    document.getElementById('windDemoLabel').textContent = '🌊 ' + theme.mechanic;
-    initWindDemo();
+    const mechanicName = theme.mechanic;
+    const isWind = mechanicName === '海风系统';
+    const isPortal = mechanicName === '传送门系统';
+    
+    if (isWind) {
+      document.getElementById('windDemoContainer').style.display = 'block';
+      document.getElementById('windDemoLabel').textContent = '🌊 ' + mechanicName;
+      initWindDemo();
+    } else if (isPortal) {
+      document.getElementById('windDemoContainer').style.display = 'block';
+      document.getElementById('windDemoLabel').textContent = '🌀 ' + mechanicName;
+      initPortalDemo();
+    } else {
+      document.getElementById('windDemoContainer').style.display = 'none';
+      stopWindDemo();
+      stopPortalDemo();
+    }
   } else {
     document.getElementById('windDemoContainer').style.display = 'none';
     stopWindDemo();
+    stopPortalDemo();
   }
 
   // 更新进度显示
