@@ -1179,58 +1179,35 @@ function spawnProjectile() {
   const def = isBomb ? BOMB : fruitPool[Math.floor(Math.random() * fruitPool.length)];
   const speed = lvl.baseSpeed * (def.speedMult || 1.5);
 
-  let sx, sy, vx, vy;
+  // 四边随机生成点
   const m = 50;
+  const side = Math.floor(Math.random() * 4);
+  let sx, sy;
+  if (side === 0) { sx = Math.random() * W; sy = -m; }
+  else if (side === 1) { sx = W + m; sy = Math.random() * H; }
+  else if (side === 2) { sx = Math.random() * W; sy = H + m; }
+  else { sx = -m; sy = Math.random() * H; }
 
+  // 目标点：角色附近加散布
+  const tx = CX + (Math.random() - 0.5) * 160;
+  const ty = CY + (Math.random() - 0.5) * 160;
+  const dx = tx - sx, dy = ty - sy;
+  const len = Math.hypot(dx, dy);
+
+  // 基础初速（对准角色）
+  let vx = (dx / len) * speed;
+  let vy = (dy / len) * speed;
+
+  // 有风时：初速反向补偿风力，使水果最终仍能漂到角色身边
+  // 估算飞行时间 t ≈ 距离 / speed，补偿量 = 风速 * t
   if (windState.active) {
-    // 有风：从逆风方向边缘生成，风推着水果飘向角色
-    // 在逆风边缘随机一个起始位置，目标为角色附近（加随机散布）
-    const spread = 120;
-    const dir = windState.dir;
-    // 逆风边缘生成点
-    if (dir === 'E') {       // 风向→东，水果从左边进入
-      sx = -m;
-      sy = Math.random() * H;
-    } else if (dir === 'W') { // 风向→西，水果从右边进入
-      sx = W + m;
-      sy = Math.random() * H;
-    } else if (dir === 'S') { // 风向→南，水果从上边进入
-      sx = Math.random() * W;
-      sy = -m;
-    } else {                  // dir === 'N'，风向→北，水果从下边进入
-      sx = Math.random() * W;
-      sy = H + m;
-    }
-
-    // 初速度：对准角色，但不包含风力补偿（风会自然漂移弥合）
-    // 为了让水果"漂"过来而不是"飞"过来，初速沿逆风轴设置较小值，
-    // 然后让风力把水果推向角色。
-    // 具体：初速朝向角色，速度乘以0.7，剩余由风来补
-    const tx = CX + (Math.random() - 0.5) * spread;
-    const ty = CY + (Math.random() - 0.5) * spread;
-    const dx = tx - sx, dy = ty - sy;
-    const len = Math.hypot(dx, dy);
-
-    // 风力会在整个飞行路程中累计偏移量，初速只需保证大致朝角色
-    // 但需补偿：初速朝向角色，减去风力将贡献的速度分量
-    const windVxContrib = windState.vx;
-    const windVyContrib = windState.vy;
-    // 初速 = 指向目标的单位向量 * speed - 风力修正（让风"恰好"能吹到角色）
-    vx = (dx / len) * speed - windVxContrib * 0.5;
-    vy = (dy / len) * speed - windVyContrib * 0.5;
-  } else {
-    // 无风：正常四边随机生成
-    const side = Math.floor(Math.random() * 4);
-    if (side === 0) { sx = Math.random() * W; sy = -m; }
-    else if (side === 1) { sx = W + m; sy = Math.random() * H; }
-    else if (side === 2) { sx = Math.random() * W; sy = H + m; }
-    else { sx = -m; sy = Math.random() * H; }
-
-    const dx = CX - sx + (Math.random() - 0.5) * 160;
-    const dy = CY - sy + (Math.random() - 0.5) * 160;
-    const len = Math.hypot(dx, dy);
-    vx = (dx / len) * speed;
-    vy = (dy / len) * speed;
+    const dist = Math.hypot(tx - sx, ty - sy);
+    const flightTime = dist / speed;          // 粗估飞行时长(s)
+    // 补偿：把风在飞行中积累的偏移量折算回初速
+    vx -= windState.vx * flightTime / (flightTime * 1.2);
+    vy -= windState.vy * flightTime / (flightTime * 1.2);
+    // 等价简化：vx -= windState.vx / 1.2;  vy -= windState.vy / 1.2;
+    // 保留20%残留偏移，让玩家能感受到风的牵引感而不是完全抵消
   }
 
   projectiles.push({
