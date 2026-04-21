@@ -6,6 +6,7 @@
 let audioCtx = null;
 let bgmGainNode = null;
 let bgmOscillators = [];
+let bgmLoopTimers = [];  // 多定时器队列（ocean BGM 用）
 let bgmPlaying = false;
 
 /** 确保 AudioContext 已初始化 */
@@ -36,6 +37,8 @@ function stopBGM() {
   bgmOscillators.forEach(o => { try { o.stop(); } catch(e) {} });
   bgmOscillators = [];
   bgmPlaying = false;
+  if (bgmLoopTimers) bgmLoopTimers.forEach(t => clearTimeout(t));
+  bgmLoopTimers = [];
 }
 
 /** 播放主题BGM */
@@ -116,12 +119,12 @@ function playPastoralBGM(now, dur) {
   scheduleBGMLoop(dur, () => playPastoralBGM(ac.currentTime, dur));
 }
 
-// ---- 柑橘岛 BGM：海风吹拂环境音 ----
+// ---- 柑橘岛 BGM：海风吹拂环境音（持续循环）----
 // 白噪音 → 带通滤波(风声) + 低频正弦脉冲(海浪节奏) + 远景海鸥泛音
 function playOceanBGM(now, dur) {
   const ac = audioCtx;
 
-  // —— 层1：主风声（白噪音 + 带通滤波） ——
+  // —— 层1：主风声（白噪音 + 带通滤波，无淡出持续循环） ——
   const windBuf = ac.createBuffer(1, ac.sampleRate * 4, ac.sampleRate);
   const wd = windBuf.getChannelData(0);
   for (let i = 0; i < wd.length; i++) wd[i] = Math.random() * 2 - 1;
@@ -142,73 +145,83 @@ function playOceanBGM(now, dur) {
 
   const windGain = ac.createGain();
   windGain.gain.setValueAtTime(0, now);
-  windGain.gain.linearRampToValueAtTime(0.18, now + 1.5);
-  windGain.gain.setValueAtTime(0.18, now + dur - 1.5);
-  windGain.gain.linearRampToValueAtTime(0, now + dur);
+  windGain.gain.linearRampToValueAtTime(0.20, now + 2);  // 启动渐入
+  // 不设 fade-out，持续循环直到 stopBGM() 才停止
 
   windSrc.connect(bp1); bp1.connect(bp2); bp2.connect(windGain);
   windGain.connect(bgmGainNode);
   windSrc.start(now);
-  windSrc.stop(now + dur + 0.5);
   bgmOscillators.push(windSrc);
 
-  // —— 层2：低频海浪脉冲（每 ~3s 一波，共 dur/3 次） ——
-  const waveCount = Math.ceil(dur / 3);
-  for (let i = 0; i < waveCount; i++) {
-    const t = now + i * 3 + Math.random() * 0.4;
+  // —— 层2：低频海浪脉冲（每3秒触发，随循环持续） ——
+  const scheduleWaves = (startTime) => {
+    const waveCount = Math.ceil(dur / 3);
+    for (let i = 0; i < waveCount; i++) {
+      const t = startTime + i * 3 + Math.random() * 0.3;
 
-    // 海浪冲击（低频正弦 ~55Hz）
-    const wo = ac.createOscillator();
-    const wg = ac.createGain();
-    wo.type = 'sine';
-    wo.frequency.setValueAtTime(55, t);
-    wo.frequency.linearRampToValueAtTime(40, t + 1.2);
-    wg.gain.setValueAtTime(0, t);
-    wg.gain.linearRampToValueAtTime(0.22, t + 0.15);
-    wg.gain.exponentialRampToValueAtTime(0.001, t + 1.8);
-    wo.connect(wg); wg.connect(bgmGainNode);
-    wo.start(t); wo.stop(t + 2);
-    bgmOscillators.push(wo);
+      // 海浪冲击（低频正弦 ~55Hz）
+      const wo = ac.createOscillator();
+      const wg = ac.createGain();
+      wo.type = 'sine';
+      wo.frequency.setValueAtTime(55, t);
+      wo.frequency.linearRampToValueAtTime(40, t + 1.2);
+      wg.gain.setValueAtTime(0, t);
+      wg.gain.linearRampToValueAtTime(0.20, t + 0.15);
+      wg.gain.exponentialRampToValueAtTime(0.001, t + 1.8);
+      wo.connect(wg); wg.connect(bgmGainNode);
+      wo.start(t); wo.stop(t + 2);
+      bgmOscillators.push(wo);
 
-    // 海浪回退噪音（白噪音瞬态）
-    const rushBuf = ac.createBuffer(1, ac.sampleRate * 1.5, ac.sampleRate);
-    const rd = rushBuf.getChannelData(0);
-    for (let j = 0; j < rd.length; j++) rd[j] = Math.random() * 2 - 1;
-    const rushSrc = ac.createBufferSource();
-    rushSrc.buffer = rushBuf;
-    const rushBP = ac.createBiquadFilter();
-    rushBP.type = 'bandpass';
-    rushBP.frequency.value = 300;
-    rushBP.Q.value = 0.3;
-    const rushG = ac.createGain();
-    rushG.gain.setValueAtTime(0, t);
-    rushG.gain.linearRampToValueAtTime(0.09, t + 0.08);
-    rushG.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
-    rushSrc.connect(rushBP); rushBP.connect(rushG); rushG.connect(bgmGainNode);
-    rushSrc.start(t); rushSrc.stop(t + 1.5);
-    bgmOscillators.push(rushSrc);
-  }
+      // 海浪回退噪音（白噪音瞬态）
+      const rushBuf = ac.createBuffer(1, ac.sampleRate * 1.5, ac.sampleRate);
+      const rd = rushBuf.getChannelData(0);
+      for (let j = 0; j < rd.length; j++) rd[j] = Math.random() * 2 - 1;
+      const rushSrc = ac.createBufferSource();
+      rushSrc.buffer = rushBuf;
+      const rushBP = ac.createBiquadFilter();
+      rushBP.type = 'bandpass';
+      rushBP.frequency.value = 300;
+      rushBP.Q.value = 0.3;
+      const rushG = ac.createGain();
+      rushG.gain.setValueAtTime(0, t);
+      rushG.gain.linearRampToValueAtTime(0.08, t + 0.08);
+      rushG.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
+      rushSrc.connect(rushBP); rushBP.connect(rushG); rushG.connect(bgmGainNode);
+      rushSrc.start(t); rushSrc.stop(t + 1.5);
+      bgmOscillators.push(rushSrc);
+    }
+  };
 
-  // —— 层3：远景海鸥泛音（稀疏高频短音） ——
-  const gullTimes = [1.2, 4.8, 7.5, 11.0, 14.2];
-  gullTimes.forEach(gt => {
-    if (gt > dur) return;
-    const t = now + gt;
-    const go = ac.createOscillator();
-    const gg = ac.createGain();
-    go.type = 'sine';
-    go.frequency.setValueAtTime(1200 + Math.random() * 400, t);
-    go.frequency.linearRampToValueAtTime(900 + Math.random() * 300, t + 0.4);
-    gg.gain.setValueAtTime(0, t);
-    gg.gain.linearRampToValueAtTime(0.04, t + 0.06);
-    gg.gain.linearRampToValueAtTime(0.02, t + 0.25);
-    gg.gain.linearRampToValueAtTime(0, t + 0.5);
-    go.connect(gg); gg.connect(bgmGainNode);
-    go.start(t); go.stop(t + 0.6);
-    bgmOscillators.push(go);
-  });
+  scheduleWaves(now);
 
-  scheduleBGMLoop(dur, () => playOceanBGM(ac.currentTime, dur));
+  // —— 层3：远景海鸥泛音（稀疏高频短音，循环触发） ——
+  const scheduleGulls = (startTime) => {
+    const gullTimes = [1.2, 4.8, 7.5, 11.0, 14.2];
+    gullTimes.forEach(gt => {
+      if (gt > dur) return;
+      const t = startTime + gt;
+      const go = ac.createOscillator();
+      const gg = ac.createGain();
+      go.type = 'sine';
+      go.frequency.setValueAtTime(1200 + Math.random() * 400, t);
+      go.frequency.linearRampToValueAtTime(900 + Math.random() * 300, t + 0.4);
+      gg.gain.setValueAtTime(0, t);
+      gg.gain.linearRampToValueAtTime(0.04, t + 0.06);
+      gg.gain.linearRampToValueAtTime(0.02, t + 0.25);
+      gg.gain.linearRampToValueAtTime(0, t + 0.5);
+      go.connect(gg); gg.connect(bgmGainNode);
+      go.start(t); go.stop(t + 0.6);
+      bgmOscillators.push(go);
+    });
+  };
+
+  scheduleGulls(now);
+
+  // 循环：到 dur 前2秒调度下一轮，避免间隙
+  const loopTimer = setTimeout(() => {
+    if (bgmPlaying) playOceanBGM(ac.currentTime, dur);
+  }, (dur - 2) * 1000);
+  bgmLoopTimers.push(loopTimer);
 }
 
 // ---- 浆果谷 BGM：神秘梦幻风（E小调）----

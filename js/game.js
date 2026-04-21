@@ -1198,25 +1198,41 @@ function spawnProjectile() {
   let vx = (dx / len) * speed;
   let vy = (dy / len) * speed;
 
-  // 有风时：精确补偿风力偏移，使水果最终落点仍在角色身边
-  // 风每帧施加 windState.vx/vy * dt 的位移，飞行 T 秒后总偏移 = wind * T
-  // 因此把初速减去 wind（补偿系数0.9保留10%漂移感觉），重新求解：
-  //   新起始方向向量 = 原始目标方向 * speed - wind * COMP
-  // 再 normalize 后乘回 speed 保持速度不变
+  // 有风时：数值积分精确补偿，使水果最终落到角色附近
+  // 水果运动模型：重力 GY = 200 加速度 + 恒定风力 windState.vx/vy
+  // 策略：先估算落地时间 T，再用风偏移修正 vx 使落点对准角色
   if (windState.active) {
-    const COMP = 0.92; // 补偿比例，保留 8% 漂移感
-    // 从起始点到目标点，若无风的初速为 (vx0,vy0)，
-    // 在飞行时间 T = dist/speed 内风累积偏移 wind*T，
-    // 所以目标应调整为 (tx - wind*T, ty - wind*T)，即修正目标点
-    const dist = Math.hypot(dx, dy);
-    const T = dist / speed;
-    const cx2 = tx - windState.vx * T * COMP;
-    const cy2 = ty - windState.vy * T * COMP;
-    const dx2 = cx2 - sx, dy2 = cy2 - sy;
-    const len2 = Math.hypot(dx2, dy2);
-    if (len2 > 1) {
-      vx = (dx2 / len2) * speed;
-      vy = (dy2 / len2) * speed;
+    const GY = 200; // 重力加速度(px/s²)，与游戏内一致
+    const catchR = 55; // 角色捕获半径
+    const catchX = CX, catchY = CY;
+
+    // 估算落地时间（精确二次方程求根）
+    // sy + vy0*t + 0.5*GY*t² = catchY
+    const a = 0.5 * GY;
+    const b = vy;
+    const c = sy - catchY;
+    const disc = b * b - 4 * a * c;
+    let T;
+    if (disc < 0) {
+      T = Math.abs((catchY - sy) / vy); // 竖直方向飞不到，用竖直估算
+    } else {
+      const t1 = (-b + Math.sqrt(disc)) / (2 * a);
+      const t2 = (-b - Math.sqrt(disc)) / (2 * a);
+      T = Math.max(t1, t2); // 取较大的正解（落下来而非飞上去）
+    }
+    T = Math.max(T, 0.3); // 至少0.3秒，防止近距离水果T过小
+
+    // 飞行 T 秒后，风造成 x 方向总偏移 = windVx * T
+    // 若落点 x0 = sx + vx * T + windVx * T 超出 catchR，则修正 vx
+    const landX = sx + vx * T + windState.vx * T;
+    const drift = landX - catchX;
+    // 修正：调整 vx 使落点回正，保留 8% 漂移感
+    const COMP = 0.92;
+    if (Math.abs(drift) > 5) {
+      vx = (sx - catchX + vx * T - drift * COMP) / T;
+      // 限制最大横向速度（不超过竖直速度的1.5倍）
+      const maxVx = Math.abs(vy) * 1.5 + speed;
+      if (Math.abs(vx) > maxVx) vx = Math.sign(vx) * maxVx;
     }
   }
 
