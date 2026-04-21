@@ -46,15 +46,14 @@ function playThemeBGM(style) {
 
   const ac = audioCtx;
   const now = ac.currentTime;
-  const loopDur = 8; // 8小节循环，每小节1秒
 
   switch (style) {
-    case 'pastoral': playPastoralBGM(now, loopDur); break;
-    case 'ocean':    playOceanBGM(now, loopDur); break;
-    case 'mystic':   playMysticBGM(now, loopDur); break;
-    case 'jungle':   playJungleBGM(now, loopDur); break;
-    case 'royal':    playRoyalBGM(now, loopDur); break;
-    default:         playPastoralBGM(now, loopDur); break;
+    case 'pastoral': playPastoralBGM(now, 8); break;   // 8秒小节循环
+    case 'ocean':    playOceanBGM(now, 16); break;     // 16秒大循环（海浪节奏完整）
+    case 'mystic':   playMysticBGM(now, 8); break;
+    case 'jungle':   playJungleBGM(now, 8); break;
+    case 'royal':    playRoyalBGM(now, 8); break;
+    default:         playPastoralBGM(now, 8); break;
   }
 }
 
