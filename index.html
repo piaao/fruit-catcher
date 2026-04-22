@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🍎 水果吃货 - Fruit Catcher</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="gameWrapper">
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- 成就提示 -->
+  <div id="achievementToast">
+    <span class="ach-icon">🏅</span>
+    <div class="ach-title">成就解锁</div>
+    <div class="ach-name" id="achName"></div>
+    <div class="ach-desc" id="achDesc"></div>
+  </div>
+
+  <!-- 道具使用提示 -->
+  <div id="itemUseHint"></div>
+
+  <!-- 道具栏 -->
+  <div id="itemBar"></div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-panel">
+      <div class="hud-label">关卡</div>
+      <div class="hud-value" id="levelVal">1</div>
+    </div>
+    <div class="hud-panel">
+      <div class="hud-label">得分</div>
+      <div class="hud-value" id="scoreVal">0</div>
+    </div>
+    <div class="hud-panel">
+      <div class="hud-label">目标</div>
+      <div class="hud-value" id="targetVal" style="color:#a8e063">66</div>
+    </div>
+    <div class="hud-panel">
+      <div class="hud-label">剩余</div>
+      <div class="hud-value" id="timerVal">45</div>
+    </div>
+  </div>
+  <!-- 连击显示 - 独立于HUD，固定在面板正下方 -->
+  <div id="comboDisplay"></div>
+  <div id="levelInfo">第 <b id="levelName">1</b> 关 — <b id="levelDesc">桃源初见</b></div>
+
+  <!-- 开始界面 -->
+  <div class="overlay" id="startScreen">
+    <h1 style="color:#ffd700">🍎 水果吃货</h1>
+    <h2>Fruit Catcher</h2>
+    <p>水果从四周射来——用<b style="color:#fff">鼠标</b>控制角色头部朝向，让水果碰到头部即可吃掉！<br>
+       越<b style="color:#a8e063">轻</b>的水果分数越高，但飞行越快！每关<b style="color:#fff">45秒</b>，达到目标分数过关。<br>
+       <b style="color:#ff6b6b">小心炸弹💣</b>！碰到会扣15分并产生爆炸！<br>
+       <b style="color:#ffd700">道具🎁</b>会随机掉落，碰到收集后按 <b style="color:#fff">数字键 1-5</b> 释放对应道具！</p>
+
+    <!-- 五大主题展示 -->
+    <div class="theme-showcase">
+      <div class="theme-card">
+        <div class="theme-emoji">🍑</div>
+        <div class="theme-name">核果园</div>
+        <div class="theme-range">1-10关</div>
+      </div>
+      <div class="theme-card">
+        <div class="theme-emoji">🍊</div>
+        <div class="theme-name">柑橘岛</div>
+        <div class="theme-range">11-20关</div>
+      </div>
+      <div class="theme-card">
+        <div class="theme-emoji">🍇</div>
+        <div class="theme-name">浆果谷</div>
+        <div class="theme-range">21-30关</div>
+      </div>
+      <div class="theme-card">
+        <div class="theme-emoji">🥭</div>
+        <div class="theme-name">热带雨林</div>
+        <div class="theme-range">31-40关</div>
+      </div>
+      <div class="theme-card">
+        <div class="theme-emoji">🍎</div>
+        <div class="theme-name">仁果殿</div>
+        <div class="theme-range">41-50关</div>
+      </div>
+    </div>
+
+    <p style="font-size:13px;color:#888;margin-top:4px">共50关 · 5大主题 · 每个主题拥有独特人物、背景、音乐和水果</p>
+
+    <!-- 秘籍区域 -->
+    <div class="cheats-panel">
+      <div class="cheats-title">🎮 秘籍（调试用）</div>
+      <div class="cheats-list">
+        <label class="cheat-item">
+          <input type="checkbox" id="cheatAllLevels">
+          <span>全关解锁</span>
+        </label>
+        <label class="cheat-item">
+          <input type="checkbox" id="cheatStartBonus">
+          <span>初始+10分</span>
+        </label>
+        <label class="cheat-item">
+          <input type="checkbox" id="cheatStartItem">
+          <span>初始道具</span>
+        </label>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="btnStart">开始游戏</button>
+    <button class="btn btn-secondary btn-small" id="btnSettings">⚙️ 设置</button>
+  </div>
+
+  <!-- 设置面板 -->
+  <div class="overlay hidden" id="settingsScreen">
+    <div class="overlay-content settings-panel">
+      <h2>⚙️ 游戏设置</h2>
+      <div class="settings-section">
+        <div class="settings-item">
+          <label class="settings-label">
+            <span>🎵 音乐音量</span>
+            <span class="settings-value" id="bgmVolumeValue">12%</span>
+          </label>
+          <input type="range" id="bgmVolume" min="0" max="100" value="12" class="settings-slider">
+        </div>
+        <div class="settings-item">
+          <label class="settings-label">
+            <span>🔊 音效音量</span>
+            <span class="settings-value" id="sfxVolumeValue">80%</span>
+          </label>
+          <input type="range" id="sfxVolume" min="0" max="100" value="80" class="settings-slider">
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-item">
+          <label class="settings-label">
+            <span>🎮 音效测试</span>
+          </label>
+          <button class="btn btn-small btn-secondary" id="btnTestSfx">🔊 播放测试</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h3>📊 数据管理</h3>
+        <button class="btn btn-danger btn-small" id="btnResetProgress">🗑️ 重置进度</button>
+        <p class="settings-hint">重置后所有关卡、成就将被清空，请谨慎操作！</p>
+      </div>
+      <button class="btn btn-primary" id="btnCloseSettings">✓ 关闭</button>
+    </div>
+  </div>
+
+  <!-- 过关界面 -->
+  <div class="overlay hidden" id="winScreen">
+    <div class="confetti-container" id="winConfetti"></div>
+    <div class="overlay-content">
+      <h1 style="color:#a8e063">🎉 过关！</h1>
+      <h2 id="winMsg"></h2>
+      <p id="winDetail"></p>
+      <div style="display:flex;gap:12px">
+        <button class="btn btn-success" id="btnNext">下一关 →</button>
+        <button class="btn btn-primary" id="btnRestart1">重新开始</button>
+        <button class="btn btn-secondary" id="btnBackHomeWin">返回首页</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 失败界面 -->
+  <div class="overlay hidden" id="loseScreen">
+    <div class="confetti-container" id="loseConfetti"></div>
+    <div class="overlay-content">
+      <h1 style="color:#ff6b6b">💀 失败！</h1>
+      <h2 id="loseMsg"></h2>
+      <p id="loseDetail"></p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+        <button class="btn btn-danger" id="btnRetryDirect">⚡ 快速重试</button>
+        <button class="btn btn-secondary" id="btnRetry">再试一次</button>
+        <button class="btn btn-secondary" id="btnBackHomeLose">返回首页</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 通关界面 -->
+  <div class="overlay hidden" id="clearScreen">
+    <div class="confetti-container" id="clearConfetti"></div>
+    <div class="firework-container" id="clearFireworks"></div>
+    <div class="overlay-content">
+      <h1 style="color:#ffd700">🏆 全部通关！</h1>
+      <h2 id="clearMsg"></h2>
+      <p id="clearDetail"></p>
+      <div style="display:flex;gap:12px">
+        <button class="btn btn-primary" id="btnRestart3">再玩一次</button>
+        <button class="btn btn-secondary" id="btnBackHomeClear">返回首页</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 暂停界面 -->
+  <div class="overlay hidden" id="pauseScreen">
+    <h1 style="color:#fff">⏸️ 游戏暂停</h1>
+    <h2 id="pauseInfo"></h2>
+    <p style="color:#666">按 <b style="color:#fff">ESC</b> 继续游戏</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+      <button class="btn btn-success" id="btnResume">继续游戏</button>
+      <button class="btn btn-danger" id="btnRetryLevel">重玩此关</button>
+      <button class="btn btn-primary" id="btnBackHome">返回首页</button>
+    </div>
+  </div>
+
+  <!-- 关卡预览界面 -->
+  <div class="overlay hidden" id="levelPreviewScreen">
+    <button class="btn-icon preview-back-btn" id="btnBackToSelect">← 返回选择</button>
+    <div class="preview-header">
+      <div class="preview-theme-emoji" id="previewThemeEmoji">🍑</div>
+      <div class="preview-theme-name" id="previewThemeName">核果园</div>
+    </div>
+    <div class="preview-level-name" id="previewLevelName">桃源初见</div>
+    <div class="preview-info">
+      <div class="preview-difficulty" id="previewDifficulty">
+        <span class="diff-label">难度</span>
+        <span class="diff-stars" id="previewStars">★★★☆☆</span>
+      </div>
+      <div class="preview-target">
+        <span class="target-label">目标</span>
+        <span class="target-value" id="previewTarget">66</span>
+      </div>
+    </div>
+    <div class="preview-mechanic-info" id="previewMechanicInfo" style="display:none"></div>
+    <div class="preview-portal-info" id="previewPortalInfo" style="display:none"></div>
+    <div class="preview-portal-info" id="previewBeeInfo" style="display:none"></div>
+    <div class="preview-portal-info" id="previewVineInfo" style="display:none"></div>
+    <div class="preview-portal-info" id="previewGravityInfo" style="display:none"></div>
+    <div class="preview-portal-info" id="previewGemInfo" style="display:none"></div>
+    <div class="preview-fruits" id="previewFruits"></div>
+    <div class="preview-items" id="previewItems"></div>
+    <button class="btn btn-primary btn-large" id="btnStartLevel">开始挑战</button>
+  </div>
+
+  <!-- 关卡选择界面 -->
+  <div class="overlay hidden" id="levelSelectScreen">
+    <!-- 顶部导航 -->
+    <div class="level-select-header">
+      <button class="btn-icon" id="btnBackToStart">✕ 关闭</button>
+      <div class="level-select-title">选择关卡</div>
+      <div class="level-select-progress" id="levelSelectProgress">已通关 0/50</div>
+    </div>
+
+    <!-- 主题信息区 -->
+    <div class="theme-info-panel">
+      <div class="theme-info-left">
+        <div class="theme-emoji-large" id="selectThemeEmoji">🍑</div>
+        <div class="theme-name-large" id="selectThemeName">核果园</div>
+        <div class="theme-page-indicator">
+          <span id="selectThemePage">1</span> / <span id="selectThemeTotal">5</span>
+        </div>
+      </div>
+      <div class="theme-info-right">
+        <div class="theme-story" id="selectThemeStory">故事背景...</div>
+        <div class="theme-player-info">
+          <span class="info-label">👤 角色：</span>
+          <span id="selectPlayerName">桃太郎</span>
+          <div class="player-desc" id="selectPlayerDesc">描述...</div>
+        </div>
+        <div id="windDemoContainer" class="wind-demo-container">
+          <div id="windDemoLabel" class="wind-demo-label">🌊 海风演示</div>
+          <canvas id="windDemoCanvas" class="wind-demo-canvas"></canvas>
+          <canvas id="portalDemoCanvas" class="wind-demo-canvas" style="display:none"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- 关卡卡片区 -->
+    <div class="level-cards-container">
+      <button class="btn-nav" id="btnPrevTheme">◀</button>
+      <div class="level-cards-grid" id="levelCardsGrid">
+        <!-- 动态生成 -->
+      </div>
+      <button class="btn-nav" id="btnNextTheme">▶</button>
+    </div>
+
+    <!-- 底部说明 -->
+    <div class="level-select-footer">
+      <div class="level-legend">
+        <span class="legend-item"><span class="status-passed">✅</span> 已通关</span>
+        <span class="legend-item"><span class="status-unlocked">🔓</span> 可挑战</span>
+        <span class="legend-item"><span class="status-locked">🔒</span> 未解锁</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- JS 模块（按依赖顺序加载） -->
+<script src="js/config.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/items.js"></script>
+<script src="js/achievements.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

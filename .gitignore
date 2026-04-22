@@ -1,0 +1,17 @@
+# 忽略临时文件
+*.tmp
+*.log
+.DS_Store
+Thumbs.db
+
+# 忽略 IDE 配置
+.vscode/
+.idea/
+*.sublime-*
+
+# 忽略工作流配置
+.workbuddy/
+
+# 忽略缓存
+*.cache/
+node_modules/
