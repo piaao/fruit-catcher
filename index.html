@@ -35,6 +35,10 @@
       <div class="hud-value" id="scoreVal">0</div>
     </div>
     <div class="hud-panel">
+      <div class="hud-label">生命</div>
+      <div class="hud-value" id="livesVal" style="color:#a8e063">❤️❤️❤️</div>
+    </div>
+    <div class="hud-panel">
       <div class="hud-label">目标</div>
       <div class="hud-value" id="targetVal" style="color:#a8e063">66</div>
     </div>
@@ -53,7 +57,7 @@
     <h2>Fruit Catcher</h2>
     <p>水果从四周射来——用<b style="color:#fff">鼠标</b>控制角色头部朝向，让水果碰到头部即可吃掉！<br>
        越<b style="color:#a8e063">轻</b>的水果分数越高，但飞行越快！每关<b style="color:#fff">45秒</b>，达到目标分数过关。<br>
-       <b style="color:#ff6b6b">小心炸弹💣</b>！碰到会扣15分并产生爆炸！<br>
+       <b style="color:#ff6b6b">小心炸弹💣</b>！每关有<b style="color:#fff">3条命</b>，碰到炸弹扣除1条生命，3条命用完则关卡失败！<br>
        <b style="color:#ffd700">道具🎁</b>会随机掉落，碰到收集后按 <b style="color:#fff">数字键 1-5</b> 释放对应道具！</p>
 
     <!-- 五大主题展示 -->
@@ -228,6 +232,7 @@
     <div class="preview-portal-info" id="previewVineInfo" style="display:none"></div>
     <div class="preview-portal-info" id="previewGravityInfo" style="display:none"></div>
     <div class="preview-portal-info" id="previewGemInfo" style="display:none"></div>
+    <div class="preview-portal-info" id="previewTargetInfo" style="display:none"></div>
     <div class="preview-fruits" id="previewFruits"></div>
     <div class="preview-items" id="previewItems"></div>
     <button class="btn btn-primary btn-large" id="btnStartLevel">开始挑战</button>

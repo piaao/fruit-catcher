@@ -45,6 +45,7 @@ const overlays = {
 // ==================== 游戏状态 ====================
 let state = 'start';
 let level = 0, score = 0, timeLeft = ROUND_TIME;
+let lives = 3; // 每关3条命
 let mouseX = CX, mouseY = CY - 60;
 let projectiles = [];
 let particles = [];
@@ -725,6 +726,488 @@ function drawGemIndicators() {
     }
     ctx.restore();
   });
+}
+
+// ---- 移动靶心系统（狂野西部主题）----
+// targetStrength 1=基础(半径80) 2=双环(半径90) 3=三环(半径100)
+// 暴击区半径随强度缩小: 1=22px 2=17px 3=13px
+let targetState = {
+  active: false,
+  strength: 0,
+  // 靶心位置（跟随鼠标/触摸）
+  x: 0, y: 0,
+  // 靶心半径（外环）
+  outerRadius: 80,
+  // 暴击区半径（中心红点）
+  critRadius: 22,
+  // 能量条
+  energy: 1.0,       // 0.0 ~ 1.0
+  maxEnergy: 1.0,
+  energyDrain: 0.18, // 每次命中消耗能量（普通）
+  energyDrainCrit: 0.30, // 暴击消耗更多
+  energyRegen: 0.12, // 每秒回复能量
+  // 靶心状态：active=完整 / shrinking=缩小中 / cooldown=恢复中
+  mode: 'active',    // 'active' | 'shrinking' | 'cooldown'
+  shrinkTimer: 0,    // 缩小动画计时
+  cooldownTimer: 0,  // 恢复冷却计时
+  cooldownDur: 2.5,  // 能量耗尽后冷却时长(秒)
+  // 视觉
+  pulsePhase: 0,
+  hitFlash: 0,       // 命中闪光
+  critFlash: 0,      // 暴击闪光
+  ringAngles: [0, 0, 0], // 三圈旋转角度
+  // 统计
+  hitCount: 0,
+  critCount: 0,
+};
+
+function getTargetStrength() {
+  const lvl = LEVELS[level];
+  return lvl.targetStrength || 0;
+}
+
+function initTargetLevel() {
+  const str = getTargetStrength();
+  if (str === 0) {
+    targetState.active = false;
+    return;
+  }
+  targetState.active = true;
+  targetState.strength = str;
+  targetState.outerRadius = str === 1 ? 80 : str === 2 ? 90 : 100;
+  targetState.critRadius   = str === 1 ? 22 : str === 2 ? 17 : 13;
+  targetState.energy = 1.0;
+  targetState.mode = 'active';
+  targetState.shrinkTimer = 0;
+  targetState.cooldownTimer = 0;
+  targetState.pulsePhase = 0;
+  targetState.hitFlash = 0;
+  targetState.critFlash = 0;
+  targetState.ringAngles = [0, 0, 0];
+  targetState.hitCount = 0;
+  targetState.critCount = 0;
+  // 靶心初始位置跟鼠标同步
+  targetState.x = mouseX;
+  targetState.y = mouseY;
+}
+
+function updateTarget(dt) {
+  if (!targetState.active) return;
+
+  const ts = targetState;
+  ts.pulsePhase += dt * 4;
+  ts.ringAngles[0] += dt * 1.2;
+  ts.ringAngles[1] -= dt * 0.9;
+  ts.ringAngles[2] += dt * 0.5;
+
+  // 靶心跟随鼠标（平滑插值）
+  ts.x += (mouseX - ts.x) * Math.min(dt * 18, 1);
+  ts.y += (mouseY - ts.y) * Math.min(dt * 18, 1);
+
+  // 命中/暴击闪光衰减
+  if (ts.hitFlash > 0) ts.hitFlash -= dt * 5;
+  if (ts.critFlash > 0) ts.critFlash -= dt * 4;
+
+  if (ts.mode === 'active') {
+    // 能量自动回复
+    if (ts.energy < ts.maxEnergy) {
+      ts.energy = Math.min(ts.maxEnergy, ts.energy + ts.energyRegen * dt);
+    }
+  } else if (ts.mode === 'shrinking') {
+    ts.shrinkTimer += dt;
+    if (ts.shrinkTimer >= 0.5) {
+      ts.mode = 'cooldown';
+      ts.cooldownTimer = 0;
+    }
+  } else if (ts.mode === 'cooldown') {
+    ts.cooldownTimer += dt;
+    if (ts.cooldownTimer >= ts.cooldownDur) {
+      ts.mode = 'active';
+      ts.energy = 0.3; // 恢复后给30%能量
+      spawnParticles(ts.x, ts.y, '#ffd700', 12);
+      addFloatingText(ts.x, ts.y - 30, '🎯 靶心恢复！', '#ffd700');
+    }
+  }
+}
+
+// 检测水果是否在靶圈内，并处理加分逻辑
+// 返回: 0=不在靶圈 1=靶圈内(1.5x) 2=暴击(3x)
+function checkTargetHit(p) {
+  if (!targetState.active || targetState.mode !== 'active') return 0;
+  const ts = targetState;
+  const d = Math.hypot(p.x - ts.x, p.y - ts.y);
+  const effectiveOuter = ts.outerRadius * (ts.energy > 0 ? 1 : 0.5);
+  if (d > effectiveOuter + p.def.radius) return 0;
+
+  // 暴击区检测（水果中心进入暴击圈）
+  if (d <= ts.critRadius + p.def.radius * 0.3) {
+    return 2; // 暴击
+  }
+  return 1; // 普通靶心命中
+}
+
+// 靶心命中后扣除能量
+function consumeTargetEnergy(isCrit) {
+  const ts = targetState;
+  if (!ts.active || ts.mode !== 'active') return;
+  const drain = isCrit ? ts.energyDrainCrit : ts.energyDrain;
+  ts.energy = Math.max(0, ts.energy - drain);
+  if (isCrit) {
+    ts.critFlash = 1.0;
+    ts.critCount++;
+  } else {
+    ts.hitFlash = 1.0;
+    ts.hitCount++;
+  }
+  if (ts.energy <= 0) {
+    ts.mode = 'shrinking';
+    ts.shrinkTimer = 0;
+  }
+}
+
+function drawTargetReticle() {
+  if (!targetState.active || state !== 'playing') return;
+  const ts = targetState;
+  const time = performance.now() / 1000;
+
+  // 缩小动画中的靶心（缩小并淡出）
+  let scale = 1.0;
+  let globalAlpha = 1.0;
+  if (ts.mode === 'shrinking') {
+    scale = 1.0 - ts.shrinkTimer / 0.5 * 0.7;
+    globalAlpha = 1.0 - ts.shrinkTimer / 0.5 * 0.8;
+  } else if (ts.mode === 'cooldown') {
+    // 冷却中显示小缩影
+    const prog = ts.cooldownTimer / ts.cooldownDur;
+    scale = 0.3 + prog * 0.7;
+    globalAlpha = 0.3 + prog * 0.5;
+  }
+
+  const outerR = ts.outerRadius * scale;
+  const critR  = ts.critRadius * scale;
+
+  ctx.save();
+  ctx.globalAlpha = globalAlpha;
+
+  // === 外环光晕 ===
+  const pulse = 1 + Math.sin(ts.pulsePhase) * 0.05;
+  const glowR = outerR * 1.3 * pulse;
+  const hitAlpha = Math.max(0, ts.hitFlash) * 0.4;
+  const critAlpha = Math.max(0, ts.critFlash) * 0.6;
+  const glowGrad = ctx.createRadialGradient(ts.x, ts.y, 0, ts.x, ts.y, glowR);
+  if (ts.critFlash > 0) {
+    glowGrad.addColorStop(0, `rgba(255,100,50,${critAlpha})`);
+    glowGrad.addColorStop(0.5, `rgba(255,200,50,${critAlpha * 0.5})`);
+    glowGrad.addColorStop(1, 'rgba(255,150,0,0)');
+  } else if (ts.hitFlash > 0) {
+    glowGrad.addColorStop(0, `rgba(255,255,100,${hitAlpha})`);
+    glowGrad.addColorStop(0.5, `rgba(255,230,80,${hitAlpha * 0.4})`);
+    glowGrad.addColorStop(1, 'rgba(255,200,50,0)');
+  } else {
+    glowGrad.addColorStop(0, 'rgba(255,180,50,0.08)');
+    glowGrad.addColorStop(0.5, 'rgba(255,150,30,0.04)');
+    glowGrad.addColorStop(1, 'rgba(255,120,0,0)');
+  }
+  ctx.fillStyle = glowGrad;
+  ctx.beginPath();
+  ctx.arc(ts.x, ts.y, glowR, 0, Math.PI * 2);
+  ctx.fill();
+
+  // === 靶心等级决定圈数 ===
+  const ringCount = ts.strength; // 1/2/3圈
+  const ringColors = ['rgba(255,220,80,0.9)', 'rgba(255,160,50,0.75)', 'rgba(255,100,40,0.6)'];
+  const ringWidths = [3, 2.5, 2];
+  const ringRadii  = [outerR, outerR * 0.68, outerR * 0.38];
+
+  for (let i = 0; i < ringCount; i++) {
+    ctx.save();
+    ctx.translate(ts.x, ts.y);
+    ctx.rotate(ts.ringAngles[i]);
+
+    const rColor = ringColors[i];
+    const rR = ringRadii[i] * pulse;
+
+    // 主环
+    ctx.beginPath();
+    ctx.arc(0, 0, rR, 0, Math.PI * 2);
+    ctx.strokeStyle = rColor;
+    ctx.lineWidth = ringWidths[i];
+    ctx.shadowColor = '#ffd700';
+    ctx.shadowBlur = ts.hitFlash > 0 ? 20 : 8;
+    ctx.stroke();
+
+    // 缺口装饰（靶心特有的十字线段）
+    if (i === 0) {
+      ctx.strokeStyle = `rgba(255,220,80,0.4)`;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 8]);
+      ctx.lineDashOffset = -time * 20;
+      ctx.beginPath();
+      ctx.arc(0, 0, rR * 1.08, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    ctx.restore();
+  }
+
+  // === 十字准星线 ===
+  const crossLen = outerR * 0.45;
+  ctx.save();
+  ctx.translate(ts.x, ts.y);
+  ctx.strokeStyle = `rgba(255,220,80,${0.5 + ts.hitFlash * 0.3})`;
+  ctx.lineWidth = 1.5;
+  ctx.shadowColor = '#ffd700';
+  ctx.shadowBlur = 5;
+  // 四条线段（留中心空隙）
+  const gap = critR * 1.3;
+  ctx.beginPath();
+  ctx.moveTo(-gap, 0); ctx.lineTo(-crossLen, 0);
+  ctx.moveTo( gap, 0); ctx.lineTo( crossLen, 0);
+  ctx.moveTo(0, -gap); ctx.lineTo(0, -crossLen);
+  ctx.moveTo(0,  gap); ctx.lineTo(0,  crossLen);
+  ctx.stroke();
+  ctx.restore();
+
+  // === 暴击中心红点 ===
+  ctx.save();
+  ctx.translate(ts.x, ts.y);
+  const critPulse = 1 + Math.sin(ts.pulsePhase * 2) * 0.12;
+  // 红点光晕
+  const critGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, critR * 1.8);
+  if (ts.critFlash > 0) {
+    critGrad.addColorStop(0, `rgba(255,50,50,${0.6 + ts.critFlash * 0.4})`);
+    critGrad.addColorStop(0.6, `rgba(255,80,30,${ts.critFlash * 0.3})`);
+    critGrad.addColorStop(1, 'rgba(255,0,0,0)');
+  } else {
+    critGrad.addColorStop(0, 'rgba(255,60,60,0.35)');
+    critGrad.addColorStop(0.6, 'rgba(220,30,30,0.12)');
+    critGrad.addColorStop(1, 'rgba(200,0,0,0)');
+  }
+  ctx.fillStyle = critGrad;
+  ctx.beginPath();
+  ctx.arc(0, 0, critR * 1.8 * critPulse, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 实心红点
+  ctx.beginPath();
+  ctx.arc(0, 0, critR * critPulse, 0, Math.PI * 2);
+  ctx.fillStyle = ts.critFlash > 0 ? `rgba(255,80,30,${0.9 + ts.critFlash * 0.1})` : 'rgba(255,60,60,0.85)';
+  ctx.shadowColor = '#ff3333';
+  ctx.shadowBlur = 12;
+  ctx.fill();
+  ctx.strokeStyle = `rgba(255,180,100,${0.7 + ts.critFlash * 0.3})`;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.restore();
+
+  // === 能量条 ===
+  if (ts.mode !== 'cooldown') {
+    const barW = outerR * 2;
+    const barH = 5;
+    const bx = ts.x - barW / 2;
+    const by = ts.y + outerR + 12;
+    // 背景
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.beginPath();
+    ctx.roundRect(bx - 1, by - 1, barW + 2, barH + 2, 3);
+    ctx.fill();
+    // 能量填充
+    const energyColor = ts.energy > 0.6 ? '#ffd700'
+                      : ts.energy > 0.3 ? '#ff9900'
+                      : '#ff4400';
+    ctx.fillStyle = energyColor;
+    ctx.shadowColor = energyColor;
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, barW * ts.energy, barH, 3);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  } else {
+    // 冷却中显示倒计时
+    const prog = ts.cooldownTimer / ts.cooldownDur;
+    const barW = outerR * 2 * scale;
+    const bx = ts.x - barW / 2;
+    const by = ts.y + outerR * scale + 12;
+    ctx.fillStyle = 'rgba(150,150,150,0.3)';
+    ctx.beginPath();
+    ctx.roundRect(bx, by, barW * prog, 4, 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(200,200,200,0.7)';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('冷却中...', ts.x, by + 14);
+  }
+
+  // === 靶心标签 ===
+  if (ts.mode === 'active' && ts.energy > 0) {
+    ctx.fillStyle = `rgba(255,220,80,${0.55 + ts.hitFlash * 0.3})`;
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('🎯 TARGET', ts.x, ts.y - outerR * pulse - 8);
+  }
+
+  ctx.restore();
+}
+
+// ---- 移动靶心演示动画（关卡选择界面）----
+let targetDemoRAF = null;
+
+function initTargetDemo() {
+  const canvas = document.getElementById('portalDemoCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W2 = canvas.width, H2 = canvas.height;
+  const CX2 = W2 / 2, CY2 = H2 / 2;
+
+  let t = 0;
+  let tx = CX2, ty = CY2;
+  // 靶心自动移动路径（演示用椭圆轨迹）
+  const pathRX = W2 * 0.28, pathRY = H2 * 0.28;
+
+  // 掉落水果
+  let demoFruits = [];
+  function spawnF() {
+    demoFruits.push({
+      x: Math.random() * W2,
+      y: -12,
+      vx: (Math.random() - 0.5) * 50,
+      vy: 35 + Math.random() * 25,
+      emoji: ['🍎', '🍊', '💚', '🌟'][Math.floor(Math.random() * 4)],
+      r: 10,
+    });
+  }
+  for (let i = 0; i < 5; i++) spawnF();
+
+  const outerR = 60, critR = 14;
+  let energy = 1.0;
+  let hitFlash = 0, critFlash = 0;
+  let ringAngle = 0;
+
+  function drawFrame() {
+    ctx.clearRect(0, 0, W2, H2);
+    t += 0.016;
+    ringAngle += 0.025;
+
+    // 靶心跟随椭圆路径
+    tx = CX2 + Math.cos(t * 0.7) * pathRX;
+    ty = CY2 + Math.sin(t * 0.5) * pathRY;
+
+    hitFlash = Math.max(0, hitFlash - 0.05);
+    critFlash = Math.max(0, critFlash - 0.04);
+    energy = Math.min(1, energy + 0.004);
+
+    // 绘制靶心
+    ctx.save();
+    // 外环光晕
+    const glow = ctx.createRadialGradient(tx, ty, 0, tx, ty, outerR * 1.3);
+    glow.addColorStop(0, `rgba(255,180,50,${0.1 + hitFlash * 0.2})`);
+    glow.addColorStop(1, 'rgba(255,120,0,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(tx, ty, outerR * 1.3, 0, Math.PI * 2); ctx.fill();
+
+    // 外环
+    ctx.save();
+    ctx.translate(tx, ty); ctx.rotate(ringAngle);
+    ctx.beginPath(); ctx.arc(0, 0, outerR, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,220,80,0.9)'; ctx.lineWidth = 2.5;
+    ctx.shadowColor = '#ffd700'; ctx.shadowBlur = hitFlash > 0 ? 15 : 6;
+    ctx.stroke(); ctx.restore();
+
+    // 中间环
+    ctx.save();
+    ctx.translate(tx, ty); ctx.rotate(-ringAngle * 0.8);
+    ctx.beginPath(); ctx.arc(0, 0, outerR * 0.65, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,160,50,0.75)'; ctx.lineWidth = 2;
+    ctx.stroke(); ctx.restore();
+
+    // 十字准星
+    ctx.save(); ctx.translate(tx, ty);
+    ctx.strokeStyle = `rgba(255,220,80,0.5)`; ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(-outerR * 0.45, 0); ctx.lineTo(-critR * 1.3, 0);
+    ctx.moveTo( outerR * 0.45, 0); ctx.lineTo( critR * 1.3, 0);
+    ctx.moveTo(0, -outerR * 0.45); ctx.lineTo(0, -critR * 1.3);
+    ctx.moveTo(0,  outerR * 0.45); ctx.lineTo(0,  critR * 1.3);
+    ctx.stroke(); ctx.restore();
+
+    // 暴击红点
+    ctx.save(); ctx.translate(tx, ty);
+    const cg = ctx.createRadialGradient(0, 0, 0, 0, 0, critR * 1.6);
+    cg.addColorStop(0, `rgba(255,60,60,${critFlash > 0 ? 0.9 : 0.4})`);
+    cg.addColorStop(1, 'rgba(200,0,0,0)');
+    ctx.fillStyle = cg;
+    ctx.beginPath(); ctx.arc(0, 0, critR * 1.6, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, 0, critR, 0, Math.PI * 2);
+    ctx.fillStyle = critFlash > 0 ? 'rgba(255,80,30,0.95)' : 'rgba(255,60,60,0.85)';
+    ctx.shadowColor = '#ff3333'; ctx.shadowBlur = 8;
+    ctx.fill(); ctx.restore();
+
+    // 能量条
+    const barW = outerR * 2, bx = tx - barW / 2, by = ty + outerR + 8;
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath(); ctx.roundRect(bx - 1, by - 1, barW + 2, 5, 2); ctx.fill();
+    const eColor = energy > 0.6 ? '#ffd700' : energy > 0.3 ? '#ff9900' : '#ff4400';
+    ctx.fillStyle = eColor; ctx.shadowColor = eColor; ctx.shadowBlur = 4;
+    ctx.beginPath(); ctx.roundRect(bx, by, barW * energy, 4, 2); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // 水果更新与命中检测
+    demoFruits.forEach(f => {
+      f.x += f.vx * 0.016;
+      f.y += f.vy * 0.016;
+      const d = Math.hypot(f.x - tx, f.y - ty);
+      if (d < outerR + f.r && !f.hit) {
+        f.hit = true;
+        const isCrit = d < critR + f.r * 0.3;
+        if (isCrit) { critFlash = 1.0; energy = Math.max(0, energy - 0.28); }
+        else { hitFlash = 1.0; energy = Math.max(0, energy - 0.16); }
+        f.hitLabel = isCrit ? '🎯×3' : '×1.5';
+        f.hitColor = isCrit ? '#ff6030' : '#ffd700';
+        f.labelAlpha = 1.0;
+      }
+      if (f.hit && f.labelAlpha > 0) {
+        f.labelAlpha -= 0.025;
+        ctx.save();
+        ctx.globalAlpha = f.labelAlpha;
+        ctx.fillStyle = f.hitColor;
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(f.hitLabel, f.x, f.y - 14);
+        ctx.restore();
+      }
+      ctx.save();
+      ctx.font = '15px serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(f.emoji, f.x, f.y);
+      ctx.restore();
+    });
+    demoFruits = demoFruits.filter(f => f.y < H2 + 20);
+    while (demoFruits.length < 5) spawnF();
+
+    // 说明文字
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,220,80,0.9)';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('🎯 靶圈内+50%  红点暴击×3', W2 / 2, H2 - 10);
+    ctx.restore();
+
+    targetDemoRAF = requestAnimationFrame(drawFrame);
+  }
+
+  if (targetDemoRAF) cancelAnimationFrame(targetDemoRAF);
+  targetDemoRAF = requestAnimationFrame(drawFrame);
+}
+
+function stopTargetDemo() {
+  if (targetDemoRAF) {
+    cancelAnimationFrame(targetDemoRAF);
+    targetDemoRAF = null;
+  }
 }
 
 // ---- 传送门系统（浆果谷主题）----
@@ -1933,6 +2416,19 @@ function showLevelPreview() {
     }
   }
 
+  // 显示移动靶心信息（狂野西部主题）
+  const targetInfo = document.getElementById('previewTargetInfo');
+  if (targetInfo) {
+    if (lvl.targetStrength && lvl.targetStrength > 0) {
+      const tLabels = ['基础靶心（80px范围）', '双环靶心（90px范围）', '三环靶心（100px范围）'];
+      const tCrits  = ['暴击区22px', '暴击区17px', '暴击区13px'];
+      targetInfo.textContent = '🎯 移动靶心：' + tLabels[lvl.targetStrength - 1] + ' / ' + tCrits[lvl.targetStrength - 1];
+      targetInfo.style.display = 'block';
+    } else {
+      targetInfo.style.display = 'none';
+    }
+  }
+
   // 计算难度星级（基于速度和炸弹概率）
   const speedScore = (lvl.baseSpeed - 104) / (300 - 104);
   const bombScore = (lvl.bombChance - 0.064) / (0.24 - 0.064);
@@ -2155,26 +2651,6 @@ function drawPlayer() {
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  // 主题特色装饰（背部）
-  if (pc.drawExtra === 'wings') {
-    // 精灵翅膀
-    ctx.shadowBlur = 0;
-    const wingFlap = Math.sin(performance.now() / 200) * 0.3;
-    for (const s of [-1, 1]) {
-      ctx.save();
-      ctx.translate(px, py);
-      ctx.rotate(a + Math.PI / 2 * s);
-      ctx.beginPath();
-      ctx.ellipse(0, -18, 8, 18, wingFlap * s, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(150,120,255,0.3)';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(180,150,255,0.5)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      ctx.restore();
-    }
-  }
-
   // 眼睛
   ctx.shadowBlur = 0;
   const perp = a + Math.PI / 2;
@@ -2215,8 +2691,76 @@ function drawPlayer() {
   ctx.textBaseline = 'middle';
   ctx.fillText('👄', hx, hy);
 
+  // 腮红装饰（苹果小丑特色）
+  ctx.globalAlpha = 0.4;
+  ctx.fillStyle = '#ff8888';
+  ctx.beginPath();
+  ctx.arc(hx - 12, hy + 3, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(hx + 12, hy + 3, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // 彩色圆点装饰
+  ctx.globalAlpha = 0.7;
+  ctx.fillStyle = '#ffd700';
+  ctx.beginPath();
+  ctx.arc(hx - 8, hy - 5, 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#00ff88';
+  ctx.beginPath();
+  ctx.arc(hx + 8, hy - 5, 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#ff66ff';
+  ctx.beginPath();
+  ctx.arc(hx, hy - 8, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
   // 主题头部装饰
-  if (pc.drawExtra === 'leaf') {
+  if (pc.drawExtra === 'clown_hat') {
+    // 小丑帽
+    ctx.shadowBlur = 0;
+    // 帽檐
+    ctx.fillStyle = '#ff4466';
+    ctx.beginPath();
+    ctx.ellipse(hx, hy - PLAYER.headR + 4, PLAYER.headR + 8, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // 帽身
+    ctx.fillStyle = '#ff4466';
+    ctx.beginPath();
+    ctx.moveTo(hx - 12, hy - PLAYER.headR + 4);
+    ctx.quadraticCurveTo(hx - 8, hy - PLAYER.headR - 25, hx, hy - PLAYER.headR - 28);
+    ctx.quadraticCurveTo(hx + 8, hy - PLAYER.headR - 25, hx + 12, hy - PLAYER.headR + 4);
+    ctx.closePath();
+    ctx.fill();
+    // 彩色条纹
+    ctx.fillStyle = '#ffff00';
+    ctx.beginPath();
+    ctx.moveTo(hx - 10, hy - PLAYER.headR + 2);
+    ctx.quadraticCurveTo(hx - 6, hy - PLAYER.headR - 18, hx, hy - PLAYER.headR - 20);
+    ctx.quadraticCurveTo(hx + 6, hy - PLAYER.headR - 18, hx + 10, hy - PLAYER.headR + 2);
+    ctx.lineTo(hx + 8, hy - PLAYER.headR + 4);
+    ctx.quadraticCurveTo(hx + 4, hy - PLAYER.headR - 14, hx, hy - PLAYER.headR - 16);
+    ctx.quadraticCurveTo(hx - 4, hy - PLAYER.headR - 14, hx - 8, hy - PLAYER.headR + 4);
+    ctx.closePath();
+    ctx.fill();
+    // 帽顶彩色球
+    ctx.fillStyle = '#00ccff';
+    ctx.beginPath();
+    ctx.arc(hx, hy - PLAYER.headR - 28, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowColor = '#00ccff';
+    ctx.shadowBlur = 8;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    // 白色高光
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.beginPath();
+    ctx.arc(hx - 1, hy - PLAYER.headR - 30, 2, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (pc.drawExtra === 'leaf') {
     // 桃叶发饰
     ctx.fillStyle = '#88cc44';
     ctx.beginPath();
@@ -2270,6 +2814,37 @@ function drawPlayer() {
     ctx.beginPath();
     ctx.arc(hx, hy - PLAYER.headR - 5, 2, 0, Math.PI * 2);
     ctx.fill();
+  } else if (pc.drawExtra === 'cowboy_hat') {
+    // 牛仔帽
+    ctx.shadowBlur = 0;
+    // 帽檐（宽边）
+    ctx.fillStyle = '#8b5a1a';
+    ctx.beginPath();
+    ctx.ellipse(hx, hy - PLAYER.headR + 3, PLAYER.headR + 10, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#6b3a08';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // 帽筒
+    ctx.fillStyle = '#a06820';
+    ctx.beginPath();
+    ctx.moveTo(hx - 10, hy - PLAYER.headR + 3);
+    ctx.lineTo(hx - 9, hy - PLAYER.headR - 16);
+    ctx.quadraticCurveTo(hx, hy - PLAYER.headR - 20, hx + 9, hy - PLAYER.headR - 16);
+    ctx.lineTo(hx + 10, hy - PLAYER.headR + 3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#7a4e10';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // 帽带（深棕色）
+    ctx.fillStyle = '#4a2800';
+    ctx.fillRect(hx - 10, hy - PLAYER.headR - 4, 20, 2.5);
+    // 帽顶中间的凹陷（阴影）
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.beginPath();
+    ctx.ellipse(hx, hy - PLAYER.headR - 16, 5, 2, 0, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   // 碰撞范围虚线
@@ -2288,6 +2863,7 @@ function drawPlayer() {
 function beginRound() {
   state = 'playing';
   score = 0;
+  lives = 3; // 每关重置为3条命
   projectiles = [];
   particles = [];
   floatingTexts = [];
@@ -2308,6 +2884,8 @@ function beginRound() {
   initGravityLevel();
   // 初始化宝石连锁（仁果殿主题）
   initGemLevel();
+  // 初始化移动靶心（狂野西部主题）
+  initTargetLevel();
   resetRoundStats();
 
   // 秘籍：初始+10分
@@ -2318,6 +2896,9 @@ function beginRound() {
 
   // 初始化主题
   initTheme();
+
+  // 初始化生命值显示
+  updateLivesDisplay();
 
   // 初始化当前关卡的道具池（渐进式）
   currentLevelItems = getCurrentItemPool();
@@ -2502,7 +3083,9 @@ function endRound() {
     }, 100);
 
     const remaining = ROUND_TIME - elapsed;
-    document.getElementById('loseMsg').textContent = '💀 第 ' + (level + 1) + ' 关失败';
+    // 根据失败原因显示不同标题
+    const loseMsg = lives <= 0 ? '💀 第 ' + (level + 1) + ' 关失败 - 生命耗尽' : '💀 第 ' + (level + 1) + ' 关失败';
+    document.getElementById('loseMsg').textContent = loseMsg;
     document.getElementById('loseDetail').innerHTML =
       '<div class="result-section">' +
       '<div class="result-section-title">🎯 本关得分</div>' +
@@ -2514,7 +3097,9 @@ function endRound() {
       '<div class="result-row"><span class="result-label">用时</span><span class="result-value">' + elapsed.toFixed(1) + 's</span></div>' +
       '<div class="result-row"><span class="result-label">剩余</span><span class="result-value">' + remaining.toFixed(1) + 's</span></div>' +
       '</div>' +
-      '<p style="margin-top:14px;color:#ff6b6b;font-size:13px">💪 还差 ' + (lvl.target - score) + ' 分，不要放弃！</p>';
+      (lives <= 0 ?
+        '<p style="margin-top:14px;color:#ff6b6b;font-size:13px">💀 生命耗尽！小心躲避炸弹！</p>' :
+        '<p style="margin-top:14px;color:#ff6b6b;font-size:13px">💪 还差 ' + (lvl.target - score) + ' 分，不要放弃！</p>');
     showOverlay('lose');
   }
 
@@ -2570,6 +3155,28 @@ function spawnParticles(x, y, color, count, big) {
 
 function addFloatingText(x, y, text, color) {
   floatingTexts.push({ x, y, text, color, alpha: 1, vy: -60, life: 1.5 });
+}
+
+// ==================== 生命值系统 ====================
+function updateLivesDisplay() {
+  const livesEl = document.getElementById('livesVal');
+  if (livesEl) {
+    // 使用心形图标显示生命值
+    const hearts = '❤️'.repeat(Math.max(0, lives));
+    const emptyHearts = '🖤'.repeat(Math.max(0, 3 - lives));
+    livesEl.textContent = hearts + emptyHearts;
+    // 生命值低时显示警告效果
+    if (lives === 1) {
+      livesEl.style.color = '#ff6b6b';
+      livesEl.classList.add('pulse');
+    } else if (lives === 2) {
+      livesEl.style.color = '#ffa500';
+      livesEl.classList.remove('pulse');
+    } else {
+      livesEl.style.color = '#a8e063';
+      livesEl.classList.remove('pulse');
+    }
+  }
 }
 
 // ==================== 界面特效函数 ====================
@@ -2865,6 +3472,8 @@ function mainLoop(ts) {
     updateGemChains(dt);
     // 宝石加速计时器
     updateGemBoosts(dt);
+    // 移动靶心系统更新（狂野西部主题）
+    updateTarget(dt);
 
     // 生成水果
     spawnTimer += dt * 1000;
@@ -2917,35 +3526,6 @@ function mainLoop(ts) {
           p.vx += ax * dt;
           p.vy += ay * dt;
         }
-      });
-    }
-
-    // 透视标记效果：显示水果掉落轨迹预测
-    if (activeEffects.radar.active) {
-      projectiles.forEach(p => {
-        if (p.eaten || p.isBomb) return;
-        // 预测水果落点（基于当前速度和方向）
-        const predictTime = 1.5; // 预测1.5秒后的位置
-        const predX = p.x + p.vx * predictTime;
-        const predY = p.y + p.vy * predictTime;
-
-        ctx.save();
-        ctx.globalAlpha = 0.6 + Math.sin(performance.now() / 200) * 0.2;
-        ctx.strokeStyle = p.def.score >= 15 ? '#ff6b6b' : p.def.score >= 10 ? '#ffd700' : '#a8e063';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([4, 4]);
-        ctx.beginPath();
-        ctx.arc(predX, predY, p.def.radius + 5, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        // 绘制预测轨迹线
-        ctx.globalAlpha = 0.4;
-        ctx.beginPath();
-        ctx.moveTo(p.x, p.y);
-        ctx.lineTo(predX, predY);
-        ctx.stroke();
-        ctx.restore();
       });
     }
 
@@ -3003,19 +3583,26 @@ function mainLoop(ts) {
             addFloatingText(h.x - 40, h.y - 20, '🛡️ 挡住了！', '#10b981');
             screenFlash = 0.5;
           } else {
-            score = Math.max(0, score + p.def.score);
+            // 扣除1条生命，不扣除分数
+            lives--;
             stats.roundBombs++;
             combo = 0;
-            document.getElementById('scoreVal').textContent = score;
+            updateLivesDisplay();
             playBombSound();
             spawnParticles(h.x, h.y, '#ff4400', 30, true);
             spawnParticles(h.x, h.y, '#ffaa00', 20, true);
             spawnParticles(h.x, h.y, '#ff0000', 15, false);
-            addFloatingText(h.x - 30, h.y - 20, p.def.score + '分', '#ff3333');
+            addFloatingText(h.x - 30, h.y - 20, '-1 ❤️', '#ff3333');
             screenFlash = 1;
             wrapper.classList.remove('shake');
             void wrapper.offsetWidth;
             wrapper.classList.add('shake');
+
+            // 生命归零，游戏失败
+            if (lives <= 0) {
+              clearInterval(countdownTimer);
+              endRound();
+            }
           }
         } else {
           let pts = p.def.score;
@@ -3030,6 +3617,27 @@ function mainLoop(ts) {
           else if (combo >= 3)  pts = Math.round(pts * 1.3);
           else if (combo >= 2)  pts = Math.round(pts * 1.2);
           if (activeEffects.double.active) pts *= 2;
+
+          // 移动靶心加成（狂野西部主题）
+          const targetHit = checkTargetHit(p);
+          if (targetHit === 2) {
+            // 暴击：3倍分数
+            pts = pts * 3;
+            consumeTargetEnergy(true);
+            spawnParticles(p.x, p.y, '#ff5020', 30, true);
+            spawnParticles(p.x, p.y, '#ffd700', 20, false);
+            addFloatingText(p.x, p.y - 55, '🎯 暴击！', '#ff5020');
+            addFloatingText(p.x + 25, p.y - 30, '×3', '#ff7030');
+            if (typeof playTargetCritSound === 'function') playTargetCritSound();
+          } else if (targetHit === 1) {
+            // 靶圈命中：1.5倍
+            pts = Math.round(pts * 1.5);
+            consumeTargetEnergy(false);
+            spawnParticles(p.x, p.y, '#ffd700', 12, false);
+            addFloatingText(p.x + 20, p.y - 20, '🎯×1.5', '#ffd700');
+            if (typeof playTargetHitSound === 'function') playTargetHitSound();
+          }
+
           score += pts;
           stats.roundScore = score;
           // 关卡里程碑检测（40% / 80%）
@@ -3209,6 +3817,9 @@ function render() {
   // 宝石水果标识（金色光圈）
   drawGemIndicators();
 
+  // 移动靶心渲染（狂野西部主题）
+  drawTargetReticle();
+
   // 海风特效渲染
   if (windState.active && state === 'playing') {
     const str = windState.strength;
@@ -3310,30 +3921,6 @@ function render() {
     mg.addColorStop(1, 'rgba(59,130,246,0)');
     ctx.fillStyle = mg;
     ctx.fill();
-    ctx.restore();
-  }
-
-  // 透视标记效果指示
-  if (activeEffects.radar.active && state === 'playing') {
-    const h = headPos();
-    const radarRatio = activeEffects.radar.timer / 5000;
-    ctx.save();
-    ctx.globalAlpha = radarRatio * (0.5 + Math.sin(performance.now() / 150) * 0.3);
-    ctx.strokeStyle = '#ec4899';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([6, 6]);
-    ctx.beginPath();
-    ctx.arc(h.x, h.y, 280, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // 绘制扫描线效果
-    const angle = (performance.now() / 500) % (Math.PI * 2);
-    ctx.beginPath();
-    ctx.moveTo(h.x, h.y);
-    ctx.lineTo(h.x + Math.cos(angle) * 280, h.y + Math.sin(angle) * 280);
-    ctx.strokeStyle = 'rgba(236,72,153,0.5)';
-    ctx.stroke();
     ctx.restore();
   }
 
@@ -3498,10 +4085,9 @@ function render() {
     let effectY = 80;
     const effectList = [];
     if (activeEffects.magnet.active) effectList.push({ icon: '🧲', name: '磁铁', timer: activeEffects.magnet.timer, max: 6000, color: '#3b82f6' });
-    if (activeEffects.slow.active) effectList.push({ icon: '⏱️', name: '减速', timer: activeEffects.slow.timer, max: 5000, color: '#f59e0b' });
+    if (activeEffects.slow.active) effectList.push({ icon: '🐌', name: '减速', timer: activeEffects.slow.timer, max: 5000, color: '#a78bfa' });
     if (activeEffects.shield.active) effectList.push({ icon: '🛡️', name: '护盾', timer: -1, max: 1, color: '#10b981' });
     if (activeEffects.double.active) effectList.push({ icon: '✖️2', name: '双倍', timer: activeEffects.double.timer, max: 8000, color: '#ef4444' });
-    if (activeEffects.radar.active) effectList.push({ icon: '🔮', name: '透视', timer: activeEffects.radar.timer, max: 5000, color: '#ec4899' });
 
     effectList.forEach(ef => {
       ctx.save();
@@ -3680,6 +4266,10 @@ function renderLevelSelect() {
       document.getElementById('windDemoContainer').style.display = 'block';
       document.getElementById('windDemoLabel').textContent = '⚡ ' + mechanicName;
       initGravityGemDemo();
+    } else if (mechanicName === '移动靶心系统') {
+      document.getElementById('windDemoContainer').style.display = 'block';
+      document.getElementById('windDemoLabel').textContent = '🎯 ' + mechanicName;
+      initTargetDemo();
     } else {
       document.getElementById('windDemoContainer').style.display = 'none';
       stopWindDemo();
@@ -3691,6 +4281,7 @@ function renderLevelSelect() {
     stopPortalDemo();
     stopFreezeSpringDemo();
     stopGravityGemDemo();
+    stopTargetDemo();
   }
 
   // 更新进度显示

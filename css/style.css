@@ -67,6 +67,8 @@ canvas.wind-demo-canvas {
 #scoreVal { color: #ffd700; }
 #timerVal { color: #ff6b6b; }
 #timerVal.warning { animation: pulse 0.5s infinite alternate; color: #ff3333; }
+#livesVal { font-size: 18px; letter-spacing: 2px; color: #a8e063; }
+#livesVal.pulse { animation: pulse 0.5s infinite alternate; }
 
 /* 连击显示 - 固定在HUD面板正下方，居中独立 */
 #comboDisplay {

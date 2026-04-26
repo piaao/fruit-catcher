@@ -1157,7 +1157,87 @@ function playGemChainSound(layer) {
   sparkle.start(now); sparkle.stop(now + 0.1);
 }
 
-// ==================== 传送门音效（浆果谷主题） ====================
+// ==================== 移动靶心音效（狂野西部主题） ====================
+
+/** 靶圈命中音效 - 金属叮声（普通命中，1.5x） */
+function playTargetHitSound() {
+  ensureAudio();
+  const ac = audioCtx, now = ac.currentTime;
+
+  // 金属质感叮声：高频 sine + triangle 泛音
+  const freqs = [880, 1320, 1760];
+  freqs.forEach((freq, i) => {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.type = i === 0 ? 'triangle' : 'sine';
+    const t = now + i * 0.02;
+    o.frequency.setValueAtTime(freq, t);
+    o.frequency.exponentialRampToValueAtTime(freq * 0.85, t + 0.15);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(i === 0 ? 0.18 : 0.08, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.25 - i * 0.04);
+    o.start(t); o.stop(t + 0.3);
+  });
+
+  // 金属短噪声（撞击感）
+  const ns = ac.createBufferSource();
+  ns.buffer = createNoiseBuffer(0.04);
+  const bf = ac.createBiquadFilter(), ng = ac.createGain();
+  ns.connect(bf); bf.connect(ng); ng.connect(ac.destination);
+  bf.type = 'bandpass'; bf.frequency.value = 3000; bf.Q.value = 1.5;
+  ng.gain.setValueAtTime(0.12, now);
+  ng.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+  ns.start(now); ns.stop(now + 0.05);
+}
+
+/** 靶心暴击音效 - 西部枪声风格（暴击命中，3x） */
+function playTargetCritSound() {
+  ensureAudio();
+  const ac = audioCtx, now = ac.currentTime;
+
+  // 爆裂感：低频 + 快速衰减
+  const o1 = ac.createOscillator(), g1 = ac.createGain();
+  o1.connect(g1); g1.connect(ac.destination);
+  o1.type = 'sawtooth';
+  o1.frequency.setValueAtTime(220, now);
+  o1.frequency.exponentialRampToValueAtTime(80, now + 0.08);
+  g1.gain.setValueAtTime(0.35, now);
+  g1.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+  o1.start(now); o1.stop(now + 0.15);
+
+  // 子弹穿透高频啸叫
+  const o2 = ac.createOscillator(), g2 = ac.createGain();
+  o2.connect(g2); g2.connect(ac.destination);
+  o2.type = 'sine';
+  o2.frequency.setValueAtTime(2400, now + 0.02);
+  o2.frequency.exponentialRampToValueAtTime(800, now + 0.18);
+  g2.gain.setValueAtTime(0, now + 0.02);
+  g2.gain.linearRampToValueAtTime(0.22, now + 0.04);
+  g2.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+  o2.start(now + 0.02); o2.stop(now + 0.25);
+
+  // 击中金属的叮声（高频延长）
+  const o3 = ac.createOscillator(), g3 = ac.createGain();
+  o3.connect(g3); g3.connect(ac.destination);
+  o3.type = 'triangle';
+  o3.frequency.setValueAtTime(1760, now + 0.05);
+  o3.frequency.setValueAtTime(2200, now + 0.07);
+  g3.gain.setValueAtTime(0, now + 0.05);
+  g3.gain.linearRampToValueAtTime(0.18, now + 0.07);
+  g3.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+  o3.start(now + 0.05); o3.stop(now + 0.5);
+
+  // 噪声爆炸
+  const ns = ac.createBufferSource();
+  ns.buffer = createNoiseBuffer(0.06);
+  const f = ac.createBiquadFilter(), ng = ac.createGain();
+  ns.connect(f); f.connect(ng); ng.connect(ac.destination);
+  f.type = 'lowpass'; f.frequency.value = 800;
+  ng.gain.setValueAtTime(0.3, now);
+  ng.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+  ns.start(now); ns.stop(now + 0.1);
+}
+
 
 /** 传送门出现音效 - 魔法展开感 */
 function playPortalAppearSound() {

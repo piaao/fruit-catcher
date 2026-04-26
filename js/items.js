@@ -20,7 +20,6 @@ let activeEffects = {
   slow:   { active: false, timer: 0 },
   shield: { active: false },
   double: { active: false, timer: 0 },
-  radar:  { active: false, timer: 0 },
 };
 
 // ---- 道具使用提示 ----
@@ -147,13 +146,6 @@ function useItem(slotIndex) {
       showItemHint('⏰ 时间+5秒！当前剩余：' + timeLeft + '秒');
       spawnParticles(h.x, h.y, '#a78bfa', 25, true);
       addFloatingText(h.x - 30, h.y - 40, '+5秒', '#a78bfa');
-      break;
-
-    case 'radar':
-      activeEffects.radar.active = true;
-      activeEffects.radar.timer = def.duration;
-      showItemHint('🔮 透视启动！显示水果掉落轨迹');
-      spawnParticles(h.x, h.y, '#ec4899', 25, true);
       break;
   }
 
