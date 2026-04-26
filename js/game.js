@@ -218,236 +218,217 @@ function stopWindSound() {
 }
 
 // ---- 蜜蜂系统（热带雨林主题）----
-let beeState = {
+// ---- 冰冻分身系统（冰霜王国主题）----
+// 多个固定位置的分身，freezeStrength=分身数量(3-6)
+let freezeState = {
   active: false,
-  bees: [],         // [{x, y, vx, vy, target, state, timer}]
-  strength: 0,      // 1=少量, 2=中量, 3=密集
+  clones: [],        // [{x, y, radius, pulsePhase, appearAnim}]
+  count: 0,          // 分身数量 (3-6)
 };
 
-function getBeeStrength() {
+function getFreezeStrength() {
   const lvl = LEVELS[level];
-  return lvl.beeStrength || 0;
+  return lvl.freezeStrength || 0;
 }
 
-function initBeesLevel() {
-  const str = getBeeStrength();
-  if (str === 0) {
-    beeState.active = false;
-    beeState.bees = [];
+const FREEZE_RADIUS = 70;     // 每个分身的冻结半径
+const FREEZE_DURATION = 3.0;  // 统一冻结时间(秒)
+
+function initFreezeLevel() {
+  const cnt = getFreezeStrength();
+  if (cnt === 0) {
+    freezeState.active = false;
+    freezeState.clones = [];
     return;
   }
-  beeState.active = true;
-  beeState.strength = str;
-}
+  freezeState.active = true;
+  freezeState.count = cnt;
+  freezeState.clones = [];
 
-function spawnBee() {
-  const side = Math.floor(Math.random() * 4);
-  let sx, sy;
-  if (side === 0) { sx = Math.random() * W; sy = -20; }
-  else if (side === 1) { sx = W + 20; sy = Math.random() * H; }
-  else if (side === 2) { sx = Math.random() * W; sy = H + 20; }
-  else { sx = -20; sy = Math.random() * H; }
-
-  beeState.bees.push({ x: sx, y: sy, vx: 0, vy: 0, timer: 5, state: 'hunting' });
-}
-
-function updateBees(dt) {
-  if (!beeState.active) return;
-
-  const spawnRate = beeState.strength === 1 ? 0.3 : beeState.strength === 2 ? 0.4 : 0.5;
-  if (Math.random() < spawnRate * dt && beeState.bees.length < beeState.strength * 2) {
-    spawnBee();
-  }
-
-  beeState.bees.forEach(bee => {
-    let closest = null, closestDist = Infinity;
-    projectiles.forEach(p => {
-      if (p.eaten || p.isBomb) return;
-      const d = dist(bee.x, bee.y, p.x, p.y);
-      if (d < closestDist) { closestDist = d; closest = p; }
+  // 随机生成cnt个不重叠的固定位置（避开角色区域）
+  const margin = 100;
+  const minDist = FREEZE_RADIUS * 2.5; // 分身间最小间距
+  for (let i = 0; i < cnt; i++) {
+    let fx, fy, attempts = 0;
+    do {
+      fx = margin + Math.random() * (W - margin * 2);
+      fy = margin + Math.random() * (H - margin * 2);
+      attempts++;
+    } while (
+      ((Math.hypot(fx - CX, fy - CY) < 130) || // 避开角色
+      freezeState.clones.some(c => Math.hypot(fx - c.x, fy - c.y) < minDist)) &&
+      attempts < 50
+    );
+    freezeState.clones.push({
+      x: fx,
+      y: fy,
+      radius: FREEZE_RADIUS,
+      pulsePhase: Math.random() * Math.PI * 2,
+      appearAnim: 0,
     });
+  }
+  if (typeof playFreezeSpawnSound === 'function') playFreezeSpawnSound(cnt);
+}
 
-    if (closest) {
-      const dx = closest.x - bee.x;
-      const dy = closest.y - bee.y;
-      const len = Math.hypot(dx, dy);
-      const beeSpeed = 250;
-      bee.vx = (dx / len) * beeSpeed;
-      bee.vy = (dy / len) * beeSpeed;
+function updateFreeze(dt) {
+  if (!freezeState.active || freezeState.clones.length === 0) return;
 
-      if (closestDist < closest.def.radius + 8) {
-        const deflect = (0.5 + Math.random()) * Math.PI / 3;
-        const curAngle = Math.atan2(closest.vy, closest.vx);
-        const newAngle = curAngle + deflect * (Math.random() < 0.5 ? 1 : -1);
-        const cv = Math.hypot(closest.vx, closest.vy);
-        closest.vx = Math.cos(newAngle) * cv;
-        closest.vy = Math.sin(newAngle) * cv;
-        spawnParticles(closest.x, closest.y, '#ffaa00', 12);
-        addFloatingText(closest.x, closest.y - 20, '🐝', '#ffd700');
-        bee.state = 'flying_away';
-        bee.timer = 1.0;
-        if (typeof playBeeStingSound === 'function') playBeeStingSound();
-      }
-    }
-
-    bee.x += bee.vx * dt;
-    bee.y += bee.vy * dt;
-    bee.timer -= dt;
-
-    if (bee.timer <= 0 || bee.x < -50 || bee.x > W + 50 || bee.y < -50 || bee.y > H + 50) {
-      bee.state = 'done';
-    }
+  // 更新所有分身动画状态
+  freezeState.clones.forEach(c => {
+    c.pulsePhase += dt * 3;
+    c.appearAnim = Math.min(1, c.appearAnim + dt * 3);
   });
 
-  beeState.bees = beeState.bees.filter(b => b.state !== 'done');
+  // 每个分身检测范围内的水果
+  freezeState.clones.forEach(c => {
+    projectiles.forEach(p => {
+      if (p.eaten || p.isBomb || p.frozen || p.wasFrozen) return; // 解冻后不可再冻
+      const d = Math.hypot(p.x - c.x, p.y - c.y);
+      if (d < c.radius + p.def.radius) {
+        p.frozen = true;
+        p.frozenTimer = FREEZE_DURATION;
+        p.frozenVx = p.vx;
+        p.frozenVy = p.vy;
+        p.vx = 0;
+        p.vy = 0;
+        p.frozenBonus = true;
+        spawnParticles(p.x, p.y, '#80e0ff', 15);
+        addFloatingText(p.x, p.y - 25, '\u2744\ufe0f', '#80e0ff');
+        if (typeof playFreezeCatchSound === 'function') playFreezeCatchSound();
+      }
+    });
+  });
+
+  // 解冻倒计时
+  projectiles.forEach(p => {
+    if (!p.frozen) return;
+    p.frozenTimer -= dt;
+    if (p.frozenTimer <= 0) {
+      p.frozen = false;
+      p.wasFrozen = true;  // 标记：不可再被冰冻
+      // 按原速度恢复，不加速
+      p.vx = p.frozenVx;
+      p.vy = p.frozenVy;
+      spawnParticles(p.x, p.y, '#a0e8ff', 8);
+    }
+  });
 }
 
-function drawBees() {
-  if (!beeState.active || state !== 'playing') return;
+function drawFreezeClones() {
+  if (!freezeState.active || freezeState.clones.length === 0 || state !== 'playing') return;
 
-  beeState.bees.forEach(bee => {
+  const theme = getCurrentTheme();
+  const pl = theme.player;
+
+  freezeState.clones.forEach(c => {
+    const alpha = c.appearAnim;
+    const pulse = 1 + Math.sin(c.pulsePhase) * 0.08;
+
     ctx.save();
-    ctx.translate(bee.x, bee.y);
+    ctx.globalAlpha = alpha * 0.7;
 
-    const wingPhase = performance.now() / 60;
-    ctx.shadowColor = '#ffd700';
-    ctx.shadowBlur = 8;
-
-    ctx.fillStyle = 'rgba(255,255,200,0.6)';
+    // 外层光晕
+    const glowR = c.radius * 1.4 * pulse;
+    const glowGrad = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, glowR);
+    glowGrad.addColorStop(0, 'rgba(150,220,255,0.18)');
+    glowGrad.addColorStop(0.5, 'rgba(100,180,255,0.08)');
+    glowGrad.addColorStop(1, 'rgba(80,160,255,0)');
+    ctx.fillStyle = glowGrad;
     ctx.beginPath();
-    ctx.ellipse(-5, -3 * Math.sin(wingPhase), 7, 4, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(5, -3 * Math.sin(wingPhase), 7, 4, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#ffcc00';
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 8, 5, 0, 0, Math.PI * 2);
+    ctx.arc(c.x, c.y, glowR, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.strokeStyle = '#333';
+    // 范围圈（流动虚线）
+    ctx.globalAlpha = alpha * 0.5;
+    ctx.strokeStyle = 'rgba(150,220,255,0.6)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 6]);
+    ctx.lineDashOffset = -performance.now() / 50;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, c.radius * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 内层核心圈
+    ctx.globalAlpha = alpha * 0.7;
+    ctx.strokeStyle = 'rgba(200,240,255,0.8)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(-2, -4); ctx.lineTo(-2, 4);
-    ctx.moveTo(2, -4); ctx.lineTo(2, 4);
+    ctx.arc(c.x, c.y, c.radius * 0.5, 0, Math.PI * 2);
     ctx.stroke();
 
-    ctx.restore();
-  });
-}
-
-// ---- 藤蔓系统（热带雨林主题）----
-let vineState = {
-  active: false,
-  vines: [],
-  strength: 0,
-};
-
-function getVineStrength() {
-  const lvl = LEVELS[level];
-  return lvl.vineStrength || 0;
-}
-
-function initVinesLevel() {
-  const str = getVineStrength();
-  if (str === 0) {
-    vineState.active = false;
-    vineState.vines = [];
-    return;
-  }
-  vineState.active = true;
-  vineState.strength = str;
-
-  for (let i = 0; i < str; i++) {
-    const fromTop = Math.random() < 0.5;
-    vineState.vines.push({
-      x1: 100 + Math.random() * (W - 200),
-      y1: fromTop ? -20 : H + 20,
-      x2: 0, y2: 0,
-      length: 150 + Math.random() * 200,
-      swayPhase: Math.random() * Math.PI * 2,
-      swayAmp: 20 + Math.random() * 30,
-      swayFreq: 0.5 + Math.random() * 0.5,
-      swayAngle: 0,
-      fromTop: fromTop,
-    });
-  }
-}
-
-function updateVines(dt) {
-  if (!vineState.active) return;
-  vineState.vines.forEach(v => {
-    v.swayPhase += dt * v.swayFreq;
-    v.swayAngle = Math.sin(v.swayPhase) * v.swayAmp * 0.02;
-    const baseX = v.x1;
-    const baseY = v.fromTop ? 0 : H;
-    v.x2 = baseX + Math.sin(v.swayAngle) * v.length * 0.5;
-    v.y2 = v.fromTop ? v.length : H - v.length;
-  });
-}
-
-function pointToSegmentDist(px, py, x1, y1, x2, y2) {
-  const dx = x2 - x1, dy = y2 - y1;
-  const lenSq = dx * dx + dy * dy;
-  if (lenSq === 0) return Math.hypot(px - x1, py - y1);
-  let t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
-  t = Math.max(0, Math.min(1, t));
-  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
-}
-
-function checkVineCollision(p) {
-  if (!vineState.active || p.eaten) return false;
-  for (const v of vineState.vines) {
-    const d = pointToSegmentDist(p.x, p.y, v.x1, v.y1, v.x2, v.y2);
-    if (d < p.def.radius + 5) {
-      p.vx *= 0.98;
-      p.vy *= 0.98;
-      spawnParticles(p.x, p.y, '#228b22', 5);
-      return true;
-    }
-  }
-  return false;
-}
-
-function drawVines() {
-  if (!vineState.active) return;
-
-  vineState.vines.forEach(v => {
-    ctx.save();
-    ctx.strokeStyle = '#2a5a2a';
-    ctx.lineWidth = 4;
-    ctx.lineCap = 'round';
-    ctx.shadowColor = '#40c040';
-    ctx.shadowBlur = 6;
-
+    // 分身轮廓（半透明角色）
+    ctx.globalAlpha = alpha * 0.35;
+    ctx.fillStyle = pl.bodyColor1;
     ctx.beginPath();
-    ctx.moveTo(v.x1, v.y1);
-    const ctrlX = (v.x1 + v.x2) / 2 + Math.sin(v.swayPhase) * v.swayAmp;
-    const ctrlY = (v.y1 + v.y2) / 2;
-    ctx.quadraticCurveTo(ctrlX, ctrlY, v.x2, v.y2);
-    ctx.stroke();
+    ctx.arc(c.x, c.y, (pl.bodyR || 28) * 0.7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = pl.headColor1;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y - (pl.headDist || 38) * 0.6, (pl.headR || 20) * 0.7, 0, Math.PI * 2);
+    ctx.fill();
 
-    const leafCount = 3 + Math.floor(v.length / 80);
-    for (let i = 0; i < leafCount; i++) {
-      const t = (i + 0.5) / leafCount;
-      const lx = v.x1 + (ctrlX - v.x1) * t * 2 + (v.x2 - ctrlX) * Math.max(0, (t - 0.5) * 2);
-      const ly = v.y1 + (ctrlY - v.y1) * t * 2 + (v.y2 - ctrlY) * Math.max(0, (t - 0.5) * 2);
-      const la = v.swayPhase + i * 1.5;
-
-      ctx.save();
-      ctx.translate(lx, ly);
-      ctx.rotate(Math.sin(la) * 0.4);
-      ctx.fillStyle = '#40c040';
-      ctx.globalAlpha = 0.7;
+    // 环绕冰晶粒子
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 12) * Math.PI * 2 + c.pulsePhase * 0.5;
+      const dist = c.radius * (0.85 + Math.sin(c.pulsePhase + i * 1.3) * 0.12);
+      const px = c.x + Math.cos(angle) * dist;
+      const py = c.y + Math.sin(angle) * dist;
+      const size = 2.5 + Math.sin(c.pulsePhase * 2 + i) * 1;
+      ctx.globalAlpha = alpha * (0.5 + Math.sin(c.pulsePhase + i * 0.7) * 0.3);
+      ctx.fillStyle = '#c0e8ff';
       ctx.beginPath();
-      ctx.ellipse(0, 0, 8, 4, 0, 0, Math.PI * 2);
+      for (let j = 0; j < 6; j++) {
+        const a = (j / 6) * Math.PI * 2;
+        const jx = px + Math.cos(a) * size;
+        const jy = py + Math.sin(a) * size;
+        if (j === 0) ctx.moveTo(jx, jy); else ctx.lineTo(jx, jy);
+      }
+      ctx.closePath();
       ctx.fill();
-      ctx.restore();
     }
+
+    // FREEZE标签
+    ctx.globalAlpha = alpha * 0.55;
+    ctx.fillStyle = 'rgba(150,220,255,0.9)';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('\u2744 FREEZE', c.x, c.y - c.radius * pulse - 8);
 
     ctx.restore();
   });
+}
+
+// 冻结水果的冰壳效果
+function drawFrozenEffect(p) {
+  if (!p.frozen) return;
+  ctx.save();
+  // 冰壳
+  ctx.strokeStyle = 'rgba(150,220,255,0.7)';
+  ctx.lineWidth = 3;
+  ctx.shadowColor = '#80e0ff';
+  ctx.shadowBlur = 10;
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, p.def.radius + 4, 0, Math.PI * 2);
+  ctx.stroke();
+  // 内部冰纹
+  ctx.globalAlpha = 0.4;
+  ctx.strokeStyle = '#c0e8ff';
+  ctx.lineWidth = 1;
+  const time = performance.now() / 500;
+  for (let i = 0; i < 3; i++) {
+    const a1 = time + i * 2.1;
+    ctx.beginPath();
+    ctx.moveTo(p.x + Math.cos(a1) * (p.def.radius - 2), p.y + Math.sin(a1) * (p.def.radius - 2));
+    ctx.lineTo(p.x + Math.cos(a1 + 2.5) * (p.def.radius + 2), p.y + Math.sin(a1 + 2.5) * (p.def.radius + 2));
+    ctx.stroke();
+  }
+  // 倒计时条（统一3秒）
+  const ratio = p.frozenTimer / FREEZE_DURATION;
+  ctx.fillStyle = 'rgba(150,220,255,0.8)';
+  ctx.fillRect(p.x - p.def.radius, p.y + p.def.radius + 6, p.def.radius * 2 * ratio, 3);
+  ctx.restore();
 }
 
 // ---- 重力场系统（仁果殿主题）----
@@ -479,17 +460,20 @@ function initGravityLevel() {
 function updateGravity(dt) {
   if (!gravityState.active) return;
 
-  const baseForce = gravityState.strength === 1 ? 30 : gravityState.strength === 2 ? 70 : 120;
-  gravityState.fieldAngle += dt * 0.5;
+  // 大幅增大基础力: 80/180/320（原来30/70/120）
+  const baseForce = gravityState.strength === 1 ? 80 : gravityState.strength === 2 ? 180 : 320;
+  gravityState.fieldAngle += dt * 0.8;  // 稍微加快旋转
 
   projectiles.forEach(p => {
     if (p.eaten || p.isBomb) return;
     const dx = CX - p.x;
     const dy = CY - p.y;
     const d = Math.hypot(dx, dy);
-    if (d > 10) {
+    // 扩大有效范围：从 d>10 改为 d<500（覆盖大部分屏幕）
+    if (d > 8 && d < 600) {
       const dir = gravityState.mode === 'attract' ? 1 : -1;
-      const force = baseForce / Math.max(d / 100, 1);
+      // 衰减改用平方反比更平滑：force ∝ 1/(d/120+1)，远处仍有明显效果
+      const force = baseForce / Math.max((d / 120) * (d / 120), 0.3);
       const nx = dx / d;
       const ny = dy / d;
       p.vx += nx * force * dir * dt;
@@ -500,8 +484,9 @@ function updateGravity(dt) {
 
 function renderGravityField() {
   if (!gravityState.active || state !== 'playing') return;
-  const rings = 5;
-  const maxR = Math.min(W, H) * 0.4;
+  
+  const rings = 6;  // 增加到6圈
+  const maxR = Math.min(W, H) * 0.45;  // 扩大显示范围
 
   ctx.save();
   ctx.translate(CX, CY);
@@ -509,12 +494,51 @@ function renderGravityField() {
 
   for (let i = 1; i <= rings; i++) {
     const r = (i / rings) * maxR;
-    const alpha = 0.06 - i * 0.008;
+    // 提高可见度: alpha 从 0.06→0.12 起始
+    const alpha = 0.12 - i * 0.015;
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(255,215,0,' + alpha + ')';
-    ctx.lineWidth = 1.5;
+    
+    if (gravityState.mode === 'attract') {
+      ctx.strokeStyle = 'rgba(255,215,0,' + Math.max(alpha, 0.02) + ')';
+    } else {
+      ctx.strokeStyle = 'rgba(255,100,100,' + Math.max(alpha, 0.02) + ')';
+    }
+    ctx.lineWidth = i <= 2 ? 2.5 : 1.5;  // 内圈更粗
     ctx.stroke();
+  }
+
+  // 绘制中心光晕
+  const glowR = 40 + gravityState.strength * 15;
+  const glowGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, glowR);
+  if (gravityState.mode === 'attract') {
+    glowGrad.addColorStop(0, 'rgba(255,215,0,0.18)');
+    glowGrad.addColorStop(0.5, 'rgba(255,180,0,0.08)');
+    glowGrad.addColorStop(1, 'rgba(255,150,0,0)');
+  } else {
+    glowGrad.addColorStop(0, 'rgba(255,100,100,0.18)');
+    glowGrad.addColorStop(0.5, 'rgba(255,80,80,0.08)');
+    glowGrad.addColorStop(1, 'rgba(255,60,60,0)');
+  }
+  ctx.fillStyle = glowGrad;
+  ctx.beginPath();
+  ctx.arc(0, 0, glowR, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 绘制流动粒子指示方向（每圈4个）
+  for (let ring = 1; ring <= rings; ring++) {
+    const r = (ring / rings) * maxR;
+    for (let j = 0; j < 4; j++) {
+      const angle = gravityState.fieldAngle * (ring % 2 === 0 ? 1 : -1) + j * Math.PI / 2;
+      const px = Math.cos(angle) * r;
+      const py = Math.sin(angle) * r;
+      ctx.fillStyle = gravityState.mode === 'attract' ? 
+        'rgba(255,215,0,' + (0.3 - ring * 0.04) + ')' : 
+        'rgba(255,100,100,' + (0.3 - ring * 0.04) + ')';
+      ctx.beginPath();
+      ctx.arc(px, py, 2.5 - ring * 0.25, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   ctx.restore();
@@ -523,22 +547,22 @@ function renderGravityField() {
   const modeColor = gravityState.mode === 'attract' ? '#ffd700' : '#ff6b6b';
 
   ctx.save();
-  ctx.globalAlpha = 0.85;
-  ctx.fillStyle = 'rgba(20,10,0,0.75)';
-  ctx.fillRect(W - 120, 48, 110, 36);
-  ctx.strokeStyle = 'rgba(255,215,0,0.35)';
+  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = 'rgba(20,10,0,0.78)';
+  ctx.fillRect(W - 120, 48, 110, 38);
+  ctx.strokeStyle = 'rgba(255,215,0,0.45)';
   ctx.lineWidth = 1;
-  ctx.strokeRect(W - 120, 48, 110, 36);
+  ctx.strokeRect(W - 120, 48, 110, 38);
 
   ctx.fillStyle = modeColor;
   ctx.font = 'bold 14px sans-serif';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  ctx.fillText(modeIcon, W - 112, 60);
+  ctx.fillText(modeIcon, W - 112, 61);
 
   ctx.font = '11px sans-serif';
   ctx.fillStyle = '#ffdd88';
-  ctx.fillText((gravityState.mode === 'attract' ? ['弱引力','中引力','强引力'] : ['弱斥力','中斥力','强斥力'])[gravityState.strength - 1], W - 112, 78);
+  ctx.fillText((gravityState.mode === 'attract' ? ['弱引力','中引力','强引力'] : ['弱斥力','中斥力','强斥力'])[gravityState.strength - 1], W - 112, 79);
   ctx.restore();
 }
 
@@ -567,20 +591,22 @@ function onGemEaten(p) {
   if (!isPomegranate && !isDurian) return;
 
   const layers = isPomegranate ? 3 : 2;
-  const baseSpeed = isPomegranate ? 150 : 200;
+  // 降低扩散速度让更多水果能被扫到: 150/200 → 100/140
+  const baseSpeed = isPomegranate ? 100 : 140;
   const colors = isPomegranate
-    ? ['rgba(255,215,0,0.4)', 'rgba(255,100,50,0.3)', 'rgba(255,50,100,0.2)']
-    : ['rgba(255,215,0,0.5)', 'rgba(255,150,50,0.3)'];
-  const maxR = isPomegranate ? 150 : 200;
+    ? ['rgba(255,215,0,0.5)', 'rgba(255,100,50,0.4)', 'rgba(255,50,100,0.3)']
+    : ['rgba(255,215,0,0.6)', 'rgba(255,150,50,0.4)'];
+  // 扩大最大半径: 石榴150→220 榴莲果200→280
+  const maxR = isPomegranate ? 220 : 280;
 
   for (let i = 0; i < layers; i++) {
-    const delay = i * 0.15;
+    const delay = i * 0.18;  // 层间延迟稍微加大，节奏感更强
     setTimeout(() => {
       gemState.chains.push({
         x: p.x, y: p.y,
         r: 10,
-        maxR: maxR * (1 - i * 0.2),
-        speed: baseSpeed - i * 30,
+        maxR: maxR * (1 - i * 0.15),
+        speed: baseSpeed - i * 20,
         alpha: 1,
         color: colors[i],
         hitFruits: new Set(),
@@ -599,16 +625,18 @@ function updateGemChains(dt) {
 
     projectiles.forEach(p => {
       if (p.eaten || p.isBomb || chain.hitFruits.has(p)) return;
+      // 扩大检测带宽: 20 → 35，更容易命中
       const d = Math.hypot(p.x - chain.x, p.y - chain.y);
-      if (d < chain.r && d > chain.r - 20) {
+      if (d < chain.r && d > chain.r - 35) {
         chain.hitFruits.add(p);
         const cv = Math.hypot(p.vx, p.vy);
         if (cv > 0.1) {
-          p.vx = p.vx / cv * (cv * 1.5);
-          p.vy = p.vy / cv * (cv * 1.5);
+          // 提高加速倍率: 1.5 → 2.2，效果更明显
+          p.vx = p.vx / cv * (cv * 2.2);
+          p.vy = p.vy / cv * (cv * 2.2);
         }
         p.gemBoosted = true;
-        p.gemBoostTimer = 2.0;
+        p.gemBoostTimer = 3.0;  // 延长持续时间: 2s → 3s
         spawnParticles(p.x, p.y, '#ffd700', 20);
         addFloatingText(p.x, p.y - 30, '✨x2', '#ffd700');
       }
@@ -623,20 +651,35 @@ function drawGemChains() {
   gemState.chains.forEach(chain => {
     ctx.save();
     ctx.globalAlpha = chain.alpha;
+    
+    // 主环 - 加粗加亮
     ctx.strokeStyle = chain.color;
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 4;  // 从3→4，更明显
     ctx.shadowColor = '#ffd700';
-    ctx.shadowBlur = 15;
+    ctx.shadowBlur = 20;  // 从15→20
     ctx.beginPath();
     ctx.arc(chain.x, chain.y, chain.r, 0, Math.PI * 2);
     ctx.stroke();
 
+    // 内发光填充
     const glowGrad = ctx.createRadialGradient(chain.x, chain.y, 0, chain.x, chain.y, chain.r);
     glowGrad.addColorStop(0, 'rgba(255,215,0,0)');
-    glowGrad.addColorStop(0.8, 'rgba(255,215,0,' + (chain.alpha * 0.05) + ')');
-    glowGrad.addColorStop(1, 'rgba(255,215,0,0)');
+    glowGrad.addColorStop(0.7, 'rgba(255,215,0,' + (chain.alpha * 0.08) + ')');
+    glowGrad.addColorStop(1, 'rgba(255,215,0,' + (chain.alpha * 0.12) + ')');  // 外圈更亮
     ctx.fillStyle = glowGrad;
     ctx.fill();
+
+    // 环上闪烁粒子（增强视觉冲击力）
+    const particleCount = Math.max(6, Math.floor(chain.r / 25));
+    for (let i = 0; i < particleCount; i++) {
+      const angle = (i / particleCount) * Math.PI * 2 + performance.now() / 500;
+      const px = chain.x + Math.cos(angle) * chain.r;
+      const py = chain.y + Math.sin(angle) * chain.r;
+      ctx.fillStyle = `rgba(255,215,0,${chain.alpha * 0.8})`;
+      ctx.beginPath();
+      ctx.arc(px, py, 3 - chain.r / chain.maxR, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     ctx.restore();
   });
@@ -657,8 +700,8 @@ function drawGemIndicators() {
   if (!gemState.active || state !== 'playing') return;
 
   projectiles.forEach(p => {
-    if (p.eaten || p.isBomb) continue;
-    if (p.def.name !== '石榴' && p.def.name !== '榴莲果') continue;
+    if (p.eaten || p.isBomb) return;
+    if (p.def.name !== '石榴' && p.def.name !== '榴莲果') return;
 
     const pulseScale = 1 + Math.sin(performance.now() / 250) * 0.15;
     ctx.save();
@@ -1095,10 +1138,10 @@ function stopPortalDemo() {
   }
 }
 
-// ---- 蜜蜂+藤蔓演示动画（关卡选择界面）----
-let beeVineDemoRAF = null;
+// ---- 冰冻分身演示动画（关卡选择界面）----
+let freezeSpringDemoRAF = null;
 
-function initBeeVineDemo() {
+function initFreezeSpringDemo() {
   const canvas = document.getElementById('portalDemoCanvas');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
@@ -1106,156 +1149,180 @@ function initBeeVineDemo() {
 
   let t = 0;
 
-  // 藤蔓数据
-  const vines = [
-    { x1: W2 * 0.25, y1: -10, swayPhase: 0, swayAmp: 15, length: H2 * 0.6 },
-    { x1: W2 * 0.75, y1: -10, swayPhase: 2, swayAmp: 20, length: H2 * 0.7 },
-  ];
-
-  // 蜜蜂
-  let bees = [
-    { x: W2 * 0.8, y: -10, targetX: W2 * 0.4, targetY: H2 * 0.5, phase: 0 },
-    { x: -10, y: H2 * 0.7, targetX: W2 * 0.5, targetY: H2 * 0.3, phase: 1.5 },
+  // 多个固定位置的分身（演示用4个）
+  const cloneRadius = Math.min(W2, H2) * 0.16;
+  const clones = [
+    { x: W2 * 0.25, y: H2 * 0.45, radius: cloneRadius, pulsePhase: 0 },
+    { x: W2 * 0.75, y: H2 * 0.4,  radius: cloneRadius, pulsePhase: 1.5 },
+    { x: W2 * 0.35, y: H2 * 0.75, radius: cloneRadius, pulsePhase: 3.0 },
+    { x: W2 * 0.7,  y: H2 * 0.78, radius: cloneRadius, pulsePhase: 4.5 },
   ];
 
   // 水果
-  let fruits = [
-    { x: W2 * 0.15, y: H2 * 0.3, vx: 30, vy: 40, emoji: '🥭' },
-    { x: W2 * 0.6, y: H2 * 0.8, vx: -20, vy: -35, emoji: '🍌' },
-  ];
+  let fruits = [];
+  function spawnFruit() {
+    return {
+      x: Math.random() * W2,
+      y: -15,
+      vx: (Math.random() - 0.5) * 60,
+      vy: 28 + Math.random() * 18,
+      emoji: ['\ud83c\udf49', '\ud83e\uddb2', '\ud83c\udf4a', '\ud83c\udf4e'][Math.floor(Math.random() * 4)],
+      frozen: false,
+      frozenTimer: 0,
+      frozenVx: 0, frozenVy: 0,
+      wasFrozen: false,
+    };
+  }
+  for (let i = 0; i < 6; i++) fruits.push(spawnFruit());
 
   function drawFrame() {
     ctx.clearRect(0, 0, W2, H2);
     t += 0.02;
 
-    // 绘制藤蔓
-    vines.forEach(v => {
-      v.swayPhase += 0.03;
-      const swayAngle = Math.sin(v.swayPhase) * v.swayAmp * 0.02;
-      const x2 = v.x1 + Math.sin(swayAngle) * v.length * 0.3;
-      const y2 = v.length;
+    // 绘制所有分身
+    clones.forEach((c, ci) => {
+      c.pulsePhase += 0.03;
+      const pulse = 1 + Math.sin(c.pulsePhase) * 0.08;
 
-      ctx.save();
-      ctx.strokeStyle = '#2a5a2a';
-      ctx.lineWidth = 3;
-      ctx.lineCap = 'round';
-      ctx.shadowColor = '#40c040';
-      ctx.shadowBlur = 4;
-
+      // 光晕
+      const glowR = c.radius * 1.4 * pulse;
+      const glow = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, glowR);
+      glow.addColorStop(0, 'rgba(150,220,255,0.20)');
+      glow.addColorStop(0.6, 'rgba(100,180,255,0.06)');
+      glow.addColorStop(1, 'rgba(80,160,255,0)');
+      ctx.fillStyle = glow;
       ctx.beginPath();
-      ctx.moveTo(v.x1, v.y1);
-      const ctrlX = (v.x1 + x2) / 2 + Math.sin(v.swayPhase) * v.swayAmp;
-      ctx.quadraticCurveTo(ctrlX, y2 / 2, x2, y2);
-      ctx.stroke();
+      ctx.arc(c.x, c.y, glowR, 0, Math.PI * 2);
+      ctx.fill();
 
-      // 叶子
-      for (let i = 0; i < 3; i++) {
-        const lt = (i + 0.5) / 3;
-        const lx = v.x1 + (ctrlX - v.x1) * lt * 2 + (x2 - ctrlX) * Math.max(0, (lt - 0.5) * 2);
-        const ly = v.y1 + (y2 / 2 - v.y1) * lt * 2;
-        ctx.fillStyle = '#40c040';
-        ctx.globalAlpha = 0.6;
+      // 范围圈
+      ctx.strokeStyle = 'rgba(150,220,255,0.5)';
+      ctx.lineWidth = 1.8;
+      ctx.setLineDash([6, 5]);
+      ctx.lineDashOffset = -t * 30;
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, c.radius * pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 分身轮廓
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = '#a0d8ef';
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, 14, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#e0f4ff';
+      ctx.beginPath();
+      ctx.arc(c.x, c.y - 21, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      // 冰晶粒子
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2 + t * 0.5 + ci;
+        const dist = c.radius * (0.85 + Math.sin(t + i * 1.3 + ci) * 0.1);
+        ctx.fillStyle = `rgba(192,232,255,${0.5 + Math.sin(t*2+i)*0.3})`;
         ctx.beginPath();
-        ctx.ellipse(lx, ly, 5, 2.5, 0, 0, Math.PI * 2);
+        ctx.arc(c.x + Math.cos(a)*dist, c.y + Math.sin(a)*dist, 2, 0, Math.PI * 2);
         ctx.fill();
       }
-      ctx.restore();
+
+      // 标签
+      ctx.fillStyle = 'rgba(150,220,255,0.9)';
+      ctx.font = 'bold 9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('\u2744', c.x, c.y - c.radius*pulse - 6);
     });
 
-    // 更新和绘制水果（被藤蔓减速）
+    // 更新和绘制水果
     fruits.forEach(f => {
-      // 藤蔓碰撞检测简化版
-      vines.forEach(v => {
-        const swayAngle = Math.sin(v.swayPhase) * v.swayAmp * 0.02;
-        const x2 = v.x1 + Math.sin(swayAngle) * v.length * 0.3;
-        const d = Math.abs(f.x - (v.x1 + x2) / 2);
-        if (d < 20 && f.y < v.length && f.y > 0) {
-          f.vx *= 0.97;
-          f.vy *= 0.97;
+      // 解冻计时
+      if (f.frozen) {
+        f.frozenTimer -= 0.016;
+        if (f.frozenTimer <= 0) {
+          f.frozen = false;
+          f.wasFrozen = true;
+          f.vx = f.frozenVx;   // 原速恢复
+          f.vy = f.frozenVy;
         }
-      });
+      }
 
-      f.x += f.vx * 0.016;
-      f.y += f.vy * 0.016;
+      // 多分身冰冻检测
+      if (!f.frozen && !f.wasFrozen) {
+        for (const c of clones) {
+          const d = Math.hypot(f.x - c.x, f.y - c.y);
+          if (d < c.radius + 10) {
+            f.frozen = true;
+            f.frozenTimer = 3.0;  // 演示也用3秒
+            f.frozenVx = f.vx; f.frozenVy = f.vy;
+            f.vx = 0; f.vy = 0;
+            break;
+          }
+        }
+      }
+
+      // 移动
+      if (!f.frozen) {
+        f.x += f.vx * 0.016;
+        f.y += f.vy * 0.016;
+      } else {
+        f.vy += 0.03;
+        f.y += f.vy * 0.016;
+      }
 
       // 边界重置
       if (f.y > H2 + 20 || f.y < -20 || f.x < -20 || f.x > W2 + 20) {
-        f.x = Math.random() * W2;
-        f.y = -10;
-        f.vx = (Math.random() - 0.5) * 60;
-        f.vy = 30 + Math.random() * 20;
+        Object.assign(f, spawnFruit());
       }
 
+      // 绘制水果
       ctx.save();
-      ctx.font = '16px serif';
+      ctx.font = '13px serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(f.emoji, f.x, f.y);
-      ctx.restore();
-    });
 
-    // 更新和绘制蜜蜂
-    bees.forEach((b, idx) => {
-      b.phase += 0.03;
-      // 向目标移动
-      const dx = b.targetX - b.x;
-      const dy = b.targetY - b.y;
-      const dist = Math.hypot(dx, dy);
-      if (dist > 5) {
-        b.x += (dx / dist) * 50 * 0.016;
-        b.y += (dy / dist) * 50 * 0.016;
-      } else {
-        // 到达目标后重新定位
-        b.x = idx === 0 ? W2 + 10 : -10;
-        b.y = Math.random() * H2;
-        b.targetX = W2 * 0.2 + Math.random() * W2 * 0.6;
-        b.targetY = H2 * 0.2 + Math.random() * H2 * 0.6;
+      // 冻结效果
+      if (f.frozen) {
+        ctx.strokeStyle = 'rgba(150,220,255,0.7)';
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = '#80e0ff';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, 12, 0, Math.PI*2);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // 倒计时条（3秒）
+        const ratio = f.frozenTimer / 3.0;
+        ctx.fillStyle = 'rgba(150,220,255,0.8)';
+        ctx.fillRect(f.x - 11, f.y + 15, 22*ratio, 2);
       }
-
-      ctx.save();
-      ctx.translate(b.x, b.y);
-      const wingFlap = Math.sin(t * 12);
-
-      // 翅膀
-      ctx.fillStyle = 'rgba(255,255,200,0.6)';
-      ctx.beginPath();
-      ctx.ellipse(-4, -3 * wingFlap, 5, 3, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(4, -3 * wingFlap, 5, 3, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 身体
-      ctx.fillStyle = '#ffcc00';
-      ctx.beginPath();
-      ctx.ellipse(0, 0, 6, 4, 0, 0, Math.PI * 2);
-      ctx.fill();
-
       ctx.restore();
     });
 
     // 说明文字
     ctx.save();
-    ctx.fillStyle = 'rgba(100,200,100,0.9)';
+    ctx.fillStyle = 'rgba(100,200,255,0.9)';
     ctx.font = 'bold 11px sans-serif';
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🐝蜜蜂追击 🌿藤蔓减速', W2 / 2, H2 - 10);
+    ctx.fillText('\u2744\ufe0f \u51b0\u6676\u5206\u8eab\u51bb\u7ed3\u6c34\u79cd\uff08\u56fa\u5b9a\u4f4d\u7f6e \u003373\u79d2\u505c\u987f \u53cc\u500d\u5206\u6570\uff09', W2/2, H2 - 10);
     ctx.restore();
 
-    beeVineDemoRAF = requestAnimationFrame(drawFrame);
+    freezeSpringDemoRAF = requestAnimationFrame(drawFrame);
   }
 
-  if (beeVineDemoRAF) cancelAnimationFrame(beeVineDemoRAF);
-  beeVineDemoRAF = requestAnimationFrame(drawFrame);
+  if (freezeSpringDemoRAF) cancelAnimationFrame(freezeSpringDemoRAF);
+  freezeSpringDemoRAF = requestAnimationFrame(drawFrame);
 }
 
-function stopBeeVineDemo() {
-  if (beeVineDemoRAF) {
-    cancelAnimationFrame(beeVineDemoRAF);
-    beeVineDemoRAF = null;
+function stopFreezeSpringDemo() {
+  if (freezeSpringDemoRAF) {
+    cancelAnimationFrame(freezeSpringDemoRAF);
+    freezeSpringDemoRAF = null;
   }
 }
+
 
 // ---- 重力+宝石演示动画（关卡选择界面）----
 let gravityGemDemoRAF = null;
@@ -1582,10 +1649,13 @@ document.getElementById('cheatStartItem').addEventListener('change', e => {
 });
 
 document.getElementById('btnStart').addEventListener('click', () => {
+  console.log('开始游戏按钮被点击');
   ensureAudio();
   if (typeof playClickSound === 'function') playClickSound();
   loadProgress(); // 加载已保存的进度
+  console.log('加载进度完成');
   showLevelSelect(); // 打开关卡选择界面
+  console.log('显示关卡选择界面');
 });
 
 // 设置按钮
@@ -1815,26 +1885,27 @@ function showLevelPreview() {
     portalInfo.style.display = 'none';
   }
 
-  // 显示蜜蜂强度（热带雨林主题）
-  const beeInfo = document.getElementById('previewBeeInfo');
-  if (beeInfo) {
-    if (lvl.beeStrength && lvl.beeStrength > 0) {
-      const beeLabels = ['少量蜜蜂', '中等蜂群', '密集蜂群'];
-      beeInfo.textContent = '🐝 蜜蜂追击：' + lvl.beeStrength + '级（' + beeLabels[lvl.beeStrength - 1] + '）';
-      beeInfo.style.display = 'block';
+  // 显示冰冻分身强度（冰霜王国主题）
+  const freezeInfo = document.getElementById('previewBeeInfo');
+  if (freezeInfo) {
+    if (lvl.freezeStrength && lvl.freezeStrength > 0) {
+      const freezeLabels = ['小范围(短)', '中范围(中)', '大范围(长)'];
+      freezeInfo.textContent = '❄ 冰冻分身：' + lvl.freezeStrength + '级（' + freezeLabels[lvl.freezeStrength - 1] + '）';
+      freezeInfo.style.display = 'block';
     } else {
-      beeInfo.style.display = 'none';
+      freezeInfo.style.display = 'none';
     }
   }
 
-  // 显示藤蔓数量（热带雨林主题）
-  const vineInfo = document.getElementById('previewVineInfo');
-  if (vineInfo) {
-    if (lvl.vineStrength && lvl.vineStrength > 0) {
-      vineInfo.textContent = '🌿 藤蔓障碍：' + lvl.vineStrength + '根藤蔓';
-      vineInfo.style.display = 'block';
+  // 显示冰晶分身数量（冰霜王国主题）
+  const springInfo = document.getElementById('previewVineInfo');
+  if (springInfo) {
+    const fCnt = lvl.freezeStrength || 0;
+    if (fCnt > 0) {
+      springInfo.textContent = '\u2744\ufe0f \u51b0\u6676\u5206\u8eab\uff1a' + fCnt + '\u4e2a\uff08\u56fa\u5b9a\u4f4d\u7f6e\uff0c\u51bb\u7ed3\u8303\u56f470px\uff09';
+      springInfo.style.display = 'block';
     } else {
-      vineInfo.style.display = 'none';
+      springInfo.style.display = 'none';
     }
   }
 
@@ -2231,10 +2302,8 @@ function beginRound() {
   initWindLevel();
   // 初始化传送门（浆果谷主题）
   initPortalsLevel();
-  // 初始化蜜蜂（热带雨林主题）
-  initBeesLevel();
-  // 初始化藤蔓（热带雨林主题）
-  initVinesLevel();
+  // 初始化冰冻分身（冰霜王国主题）
+  initFreezeLevel();
   // 初始化重力场（仁果殿主题）
   initGravityLevel();
   // 初始化宝石连锁（仁果殿主题）
@@ -2788,10 +2857,8 @@ function mainLoop(ts) {
     updateWind(dt);
     // 传送门系统更新
     updatePortals(dt);
-    // 蜜蜂系统更新
-    updateBees(dt);
-    // 藤蔓系统更新
-    updateVines(dt);
+    // 冰冻分身更新(冰霜王国)
+    updateFreeze(dt);
     // 重力场系统更新
     updateGravity(dt);
     // 宝石连锁系统更新
@@ -2921,9 +2988,6 @@ function mainLoop(ts) {
       // 传送门检测（水果经过传送门时触发传送）
       checkPortalTeleport(p);
 
-      // 藤蔓碰撞检测（热带雨林主题）
-      checkVineCollision(p);
-
       if (hitTest(p)) {
         p.eaten = true;
         combo++;
@@ -2988,6 +3052,13 @@ function mainLoop(ts) {
             if (typeof playHighScoreSound === 'function') playHighScoreSound();
           } else {
             spawnParticles(h.x, h.y, '#fff', 16, false);
+          }
+
+          // 冰冻加分（冰霜王国主题 - 被冻结的水果得分翻倍）
+          if (p.frozenBonus) {
+            pts = Math.round(pts * 2);
+            addFloatingText(h.x + 18, h.y - 8, '❄x2', '#80e0ff');
+            p.frozenBonus = false;
           }
 
           const lbl = combo >= 2 ? ('+' + pts + ' x' + combo + '连击！') : ('+' + pts);
@@ -3124,10 +3195,8 @@ function render() {
     drawPortals();
   }
 
-  // 藤蔓渲染（热带雨林主题）- 在投射物之前
-  if (vineState.active) {
-    drawVines();
-  }
+  // 冰冻分身渲染（冰霜王国主题）
+  drawFreezeClones();
 
   // 重力场渲染（仁果殿主题）- 在背景层
   if (gravityState.active) {
@@ -3139,11 +3208,6 @@ function render() {
 
   // 宝石水果标识（金色光圈）
   drawGemIndicators();
-
-  // 蜜蜂渲染（热带雨林主题）
-  if (beeState.active) {
-    drawBees();
-  }
 
   // 海风特效渲染
   if (windState.active && state === 'playing') {
@@ -3325,6 +3389,13 @@ function render() {
 
     ctx.restore();
   });
+
+  // 冻结水果冰壳效果（冰霜王国主题）
+  if (freezeState.active) {
+    projectiles.forEach(p => {
+      if (!p.eaten && p.frozen) drawFrozenEffect(p);
+    });
+  }
 
   // 道具掉落物
   itemDrops.forEach(d => {
@@ -3601,10 +3672,10 @@ function renderLevelSelect() {
       document.getElementById('windDemoContainer').style.display = 'block';
       document.getElementById('windDemoLabel').textContent = '🌀 ' + mechanicName;
       initPortalDemo();
-    } else if (mechanicName === '蜜蜂+藤蔓系统') {
+    } else if (mechanicName === '蜜蜂+藤蔓系统' || mechanicName === '冰冻分身+弹簧跳板系统') {
       document.getElementById('windDemoContainer').style.display = 'block';
-      document.getElementById('windDemoLabel').textContent = '🐝 ' + mechanicName;
-      initBeeVineDemo();
+      document.getElementById('windDemoLabel').textContent = '🧊 ' + (mechanicName.includes('冰冻') ? mechanicName : mechanicName);
+      initFreezeSpringDemo();
     } else if (mechanicName === '重力场+宝石连锁系统') {
       document.getElementById('windDemoContainer').style.display = 'block';
       document.getElementById('windDemoLabel').textContent = '⚡ ' + mechanicName;
@@ -3618,7 +3689,7 @@ function renderLevelSelect() {
     document.getElementById('windDemoContainer').style.display = 'none';
     stopWindDemo();
     stopPortalDemo();
-    stopBeeVineDemo();
+    stopFreezeSpringDemo();
     stopGravityGemDemo();
   }
 
@@ -3682,14 +3753,18 @@ function renderLevelSelect() {
 
 /** 显示关卡选择界面 */
 function showLevelSelect() {
+  console.log('showLevelSelect 被调用');
   loadProgress();
 
   // 默认显示最高通关关卡所在的主题
   const maxPassed = stats.maxLevelCleared >= 0 ? stats.maxLevelCleared : 0;
   currentSelectTheme = Math.floor(maxPassed / 10);
+  console.log('当前主题索引:', currentSelectTheme);
 
   renderLevelSelect();
+  console.log('renderLevelSelect 完成');
   showOverlay('select');
+  console.log('showOverlay 完成');
 }
 
 /** 切换到上一个主题 */

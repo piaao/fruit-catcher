@@ -991,49 +991,81 @@ function playMilestoneSound(threshold) {
   }
 }
 
-// ==================== 热带雨林主题音效 ====================
+// ==================== 冰霜王国主题音效 ====================
 
-/** 蜜蜂蜇水果音效 - 嗡嗡+尖锐蜇刺声 */
-function playBeeStingSound() {
+/** 冰冻分身生成音效 - 晶莹冰裂声 */
+function playFreezeSpawnSound(strength) {
   ensureAudio();
   const ac = audioCtx, now = ac.currentTime;
-  // 蜜蜂嗡嗡（高频正弦）
-  const buzz = ac.createOscillator(), bg = ac.createGain();
-  buzz.connect(bg); bg.connect(ac.destination);
-  buzz.type = 'sine';
-  buzz.frequency.setValueAtTime(280, now);
-  buzz.frequency.linearRampToValueAtTime(180, now + 0.15);
-  bg.gain.setValueAtTime(0.12, now);
-  bg.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-  buzz.start(now); buzz.stop(now + 0.2);
+  // 冰晶碎裂声（高频短噪声）
+  const crack = ac.createBufferSource();
+  const buf = ac.createBuffer(1, ac.sampleRate * 0.15, ac.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) {
+    data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ac.sampleRate * 0.03));
+  }
+  crack.buffer = buf;
+  const f1 = ac.createBiquadFilter(), g1 = ac.createGain();
+  f1.type = 'highpass'; f1.frequency.value = 3000 + strength * 500;
+  crack.connect(f1); f1.connect(g1); g1.connect(ac.destination);
+  g1.gain.setValueAtTime(0.12, now);
+  g1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+  crack.start(now); crack.stop(now + 0.16);
 
-  // 蜇刺瞬态
-  const sting = ac.createOscillator(), sg = ac.createGain();
-  sting.connect(sg); sg.connect(ac.destination);
-  sting.type = 'square';
-  sting.frequency.setValueAtTime(2000, now + 0.05);
-  sting.frequency.exponentialRampToValueAtTime(400, now + 0.1);
-  sg.gain.setValueAtTime(0, now + 0.05);
-  sg.gain.linearRampToValueAtTime(0.08, now + 0.06);
-  sg.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-  sting.start(now + 0.05); sting.stop(now + 0.15);
+  // 低频冰冻基音
+  const ice = ac.createOscillator(), ig = ac.createGain();
+  ice.type = 'sine';
+  ice.frequency.setValueAtTime(200 + strength * 40, now);
+  ice.frequency.exponentialRampToValueAtTime(120, now + 0.3);
+  ice.connect(ig); ig.connect(ac.destination);
+  ig.gain.setValueAtTime(0.08, now);
+  ig.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+  ice.start(now); ice.stop(now + 0.4);
+
+  // 高频冰晶泛音
+  const sparkle = ac.createOscillator(), sg = ac.createGain();
+  sparkle.type = 'sine';
+  sparkle.frequency.value = 2000 + strength * 200;
+  sparkle.connect(sg); sg.connect(ac.destination);
+  sg.gain.setValueAtTime(0, now);
+  sg.gain.linearRampToValueAtTime(0.05, now + 0.02);
+  sg.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+  sparkle.start(now); sparkle.stop(now + 0.25);
 }
 
-/** 水果穿过藤蔓音效 - 沙沙摩擦声 */
-function playVineRubSound() {
+/** 水果被冻结音效 - 清脆结冰声 */
+function playFreezeCatchSound() {
   ensureAudio();
   const ac = audioCtx, now = ac.currentTime;
+  // 结冰声（快速上升的正弦波）
+  const freeze = ac.createOscillator(), fg = ac.createGain();
+  freeze.type = 'sine';
+  freeze.frequency.setValueAtTime(800, now);
+  freeze.frequency.exponentialRampToValueAtTime(1400, now + 0.08);
+  freeze.frequency.exponentialRampToValueAtTime(600, now + 0.2);
+  freeze.connect(fg); fg.connect(ac.destination);
+  fg.gain.setValueAtTime(0.15, now);
+  fg.gain.setValueAtTime(0.15, now + 0.1);
+  fg.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+  freeze.start(now); freeze.stop(now + 0.32);
+
+  // 冰晶颗粒噪声
   const ns = ac.createBufferSource();
-  ns.buffer = createNoiseBuffer(0.15);
-  const f = ac.createBiquadFilter(), g = ac.createGain();
-  ns.connect(f); f.connect(g); g.connect(ac.destination);
-  f.type = 'bandpass';
-  f.frequency.value = 3000;
-  f.Q.value = 0.8;
-  g.gain.setValueAtTime(0.08, now);
-  g.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-  ns.start(now); ns.stop(now + 0.15);
+  const nbuf = ac.createBuffer(1, ac.sampleRate * 0.12, ac.sampleRate);
+  const ndata = nbuf.getChannelData(0);
+  for (let i = 0; i < ndata.length; i++) {
+    ndata[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ac.sampleRate * 0.02)) * 0.5;
+  }
+  ns.buffer = nbuf;
+  const nf = ac.createBiquadFilter(), ng = ac.createGain();
+  nf.type = 'bandpass'; nf.frequency.value = 5000; nf.Q.value = 2;
+  ns.connect(nf); nf.connect(ng); ng.connect(ac.destination);
+  ng.gain.setValueAtTime(0.06, now);
+  ng.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+  ns.start(now); ns.stop(now + 0.13);
 }
+
+// （弹簧音效已移除 - 冰霜王国主题不再使用弹簧跳板）
 
 // ==================== 仁果殿主题音效 ====================
 
